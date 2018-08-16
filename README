@@ -1,0 +1,20 @@
+If you have downloaded the source then read COMPILING for instructions for your platform.
+
+The game has built-in help with instructions, information and strategies.
+
+Type 'pipepanic --help' for command line options.
+
+Usage: pipepanic [option] [option]...
+Options:
+  -240x320   Suitable for the SL5X00
+  -320x240   Suitable for the SL5X00
+  -640x480   Suitable for the C Series
+  -480x640   Suitable for the SL6000
+  -f         Run the game fullscreen
+  -fpstest   Run a 10s fps test and quit
+
+For Linux PCs use -f for fullscreen mode as the default is windowed 640x480.
+
+For Zaurii the game automatically selects the appropriate resolution/orientation for your model. The SL5X00 models default to 240x320 portrait mode. If you want to play the game in landscape orientation open a terminal and type 'pipepanic -320x240'.
+
+-fpstest rebuilds the entire screen as many times as possible within 10 seconds and then quits displaying the results in the console. Normally the game only redraws what is required. On my Zaurus SL-5500 I get 27fps at 320x240 and 25fps at 240x320.

@@ -1,0 +1,22 @@
+SOURCES=main.c
+OBJECTS=main.o
+TARGET=pipepanic
+
+# Settings for arm.
+CC=/opt/Embedix/tools/bin/arm-linux-gcc
+CFLAGS=-pipe -Wall -W -O2 -DNO_DEBUG -DQWS -I/opt/Qtopia/sharp/include -I/opt/Qtopia/sharp/include/SDL -D_REENTRANT -Dmain=SDL_main
+LINK=/opt/Embedix/tools/bin/arm-linux-gcc
+LDFLAGS=-L/opt/Qtopia/sharp/lib
+LIBS=-lqpe -lqte -lSDL -lSDLmain -lpthread
+
+all:
+	$(CC) $(CFLAGS) -c $(SOURCES)
+	$(LINK) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(TARGET)
+	zaurus/_buildipk
+	zaurus/_buildtgz
+
+.PHONY: clean
+
+clean:
+	rm $(OBJECTS)
+	rm $(TARGET)

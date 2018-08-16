@@ -1,0 +1,10 @@
+Package: pipepanic
+Priority: optional
+Section: Games
+Version: 0.1.3
+Architecture: arm
+Maintainer: TheGreenKnight <thegreenknight1500@hotmail.com>
+Depends: libSDL
+License: GPL
+Description: Pipepanic for the Sharp Zaurus ARM.
+Source: http://thunor.org.uk/pipepanic

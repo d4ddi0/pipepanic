@@ -1,0 +1,14 @@
+Linux
+-----
+
+	Type 'make'. This will build a pipepanic binary.
+
+Zaurus (ARM) (requires installed ARM development environment)
+-------------------------------------------------------------
+
+	Type 'make -f Makefile.arm'. This will build pipepanic_x.x.x_arm.ipk and pipepanic-x.x.x-arm.tar.gz. If you have the Sharp ROM then install the ipk else extract the tarball and run it via the console.
+
+
+Pipepanic requires libSDL only.
+
+

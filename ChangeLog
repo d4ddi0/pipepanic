@@ -1,0 +1,18 @@
+2006-05-16 TheGreenKnight <thegreenknight1500@hotmail.com>
+* 0.1.3
+* Shuffled pipes and preview pieces are reinitialised for each game.
+* Created a Zaurus ARM binary tarball in addition to the ipk.
+* Updated the tools for building the Zaurus version.
+
+2006-05-15 TheGreenKnight <thegreenknight1500@hotmail.com>
+* 0.1.2
+* Removed -Dmain=SDL_main from the Linux makefile.
+
+2006-05-15 TheGreenKnight <thegreenknight1500@hotmail.com>
+* 0.1.1
+* Updated the tools for building the Zaurus version.
+
+2006-05-14 TheGreenKnight <thegreenknight1500@hotmail.com>
+* 0.1.0
+* Initial release.
+

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#This creates a source tarball.
+
+if test -a VERSION ; then
+	VERSION="$(cat VERSION)"
+
+	mkdir pipepanic-$VERSION-source
+	
+	cp -r ascii15.bmp ascii30.* AUTHORS backup Bugs buildsrc ChangeLog COMPILING COPYING COPYING-ARTWORK digits24.* digits48.* main.c main.h Makefile* PipepanicIcon* README texts48.xcf tiles* TODO VERSION zaurus pipepanic-$VERSION-source
+	
+	tar -czvf pipepanic-$VERSION-source.tar.gz pipepanic-$VERSION-source
+	
+	rm -rf pipepanic-$VERSION-source
+	
+	echo "All done."
+else
+	echo "ERROR: File \"VERSION\" not found. This is a text file with the version number inside it."
+fi
+

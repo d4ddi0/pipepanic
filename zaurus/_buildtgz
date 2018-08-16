@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#This creates a binary tarball for the Zaurus.
+#NOTE: This is run when executing 'make -f Makefile.arm'.
+
+if test -a VERSION ; then
+	VERSION="$(cat VERSION)"
+
+	mkdir pipepanic-$VERSION-arm
+	
+	cp ascii15.bmp ascii30.bmp digits24.bmp digits48.bmp tiles24.bmp tiles48.bmp pipepanic-$VERSION-arm
+	cp pipepanic README COPYING COPYING-ARTWORK pipepanic-$VERSION-arm
+	
+	tar -czvf pipepanic-$VERSION-arm.tar.gz pipepanic-$VERSION-arm
+	
+	rm -rf pipepanic-$VERSION-arm
+	
+	echo "All done."
+else
+	echo "ERROR: File \"VERSION\" not found. This is a text file with the version number inside it."
+fi
+
