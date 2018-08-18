@@ -284,8 +284,7 @@ int get_machine_id(void) {
 	int returnval = 0;
 	FILE *file = fopen( "/proc/deviceinfo/product", "r" );
 	
-	if (file) {
-		fgets(buffer, 255, file);
+	if (file && fgets(buffer, 255, file)) {
 		#ifdef DEBUG
 		printf("product=%s\n", buffer);
 		#endif
@@ -1201,7 +1200,7 @@ void manage_help_input(int input) {
 
 void createdeadpipesarray(void) {
 	int count = 0, rowloop = 0, colloop = 0;
-	int pointexists = FALSE, endreached = FALSE, pointsconverge = FALSE;
+	int pointexists = FALSE, pointsconverge = FALSE;
 	int leakcount = 0, deadcount = 0, freepointer = 0;
 	int filledcounter = FILLEDCOUNTERBASE;
 	int north = FALSE, south = FALSE, east = FALSE, west = FALSE;
@@ -1332,7 +1331,6 @@ void createdeadpipesarray(void) {
 				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] == 1) {
 					if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
 					pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
-					endreached = TRUE;
 				} else {
 					/* ElseIf target is valid and not visited... */
 					if (targetvalid && !targetvisited) {
