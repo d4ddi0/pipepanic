@@ -40,7 +40,6 @@ SDL_Surface *screen;
 SDL_Surface *digits;
 SDL_Surface *tiles;
 SDL_Surface *ascii;
-SDL_Surface *temp;
 SDL_Event event;
 char *current_dir;
 char *user_home_dir;
@@ -326,99 +325,58 @@ void clear_screen(void) {
    the display format for optimisation. Also RLE is enabled for the colorkey
    which makes probably the biggest difference in frame rate I have found yet.
    On exit: returns 1 if an error occured else 0. */
+int load_bitmap(SDL_Surface **surface, const char *fname, Uint32
+		cflag, Uint8 r, Uint8 g, Uint8 b)
+{
+	SDL_Surface *temp = SDL_LoadBMP(fname);
+	char buf[128];
+	if (!temp) {
+		strncpy(buf, DATADIR, sizeof(buf));
+		strncat(buf, fname, sizeof(buf) - strnlen(DATADIR, 128));
+		temp = SDL_LoadBMP(buf);
+		if (!temp) {
+			printf("%s: Cannot find file %s\n", __func__, buf);
+			return 1;
+		}
+	}
+
+	if (cflag)
+		SDL_SetColorKey(temp, cflag, SDL_MapRGB(temp->format, r, g, b));
+
+	*surface = SDL_DisplayFormat(temp);
+	if (!surface) {
+		printf("%s: SDL_DisplayFormat error: %s\n",
+		       __func__, SDL_GetError());
+		return 1;
+	}
+	SDL_FreeSurface(temp);
+
+	return 0;
+}
 
 int load_bitmaps(void) {
-	if (xres == 320 || xres == 240) {
-		/* First check current dir. */
-		if((temp = SDL_LoadBMP(DIGITS24BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR DIGITS24BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, DIGITS24BMP);
-				return 1;
-			}
-		}
-		if((digits = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
-		
-		/* First check current dir. */
-		if((temp = SDL_LoadBMP(TILES24BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR TILES24BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, TILES24BMP);
-				return 1;
-			}
-		}
-		SDL_SetColorKey(temp, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(temp->format, MAGENTA));
-		if((tiles = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
-		
-		/* First check current dir. */
-		if((temp = SDL_LoadBMP(ASCII15BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR ASCII15BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, ASCII15BMP);
-				return 1;
-			}
-		}
-		SDL_SetColorKey(temp, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(temp->format, WHITE));
-		if((ascii = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
-		
-	} else if (xres == 640 || xres == 480) {
-		/* First check current dir. */
-		if((temp = SDL_LoadBMP(DIGITS48BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR DIGITS48BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, DIGITS48BMP);
-				return 1;
-			}
-		}
-		if((digits = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
-		
-		/* First check current dir. */
-		if((temp = SDL_LoadBMP(TILES48BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR TILES48BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, TILES48BMP);
-				return 1;
-			}
-		}
-		SDL_SetColorKey(temp, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(temp->format, MAGENTA));
-		if((tiles = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
-	
-			/* First check current dir. */
-		if((temp = SDL_LoadBMP(ASCII30BMP)) == NULL) {
-			/* Now check DATADIR. */
-			if((temp = SDL_LoadBMP(DATADIR ASCII30BMP)) == NULL) {
-				printf("%s: Cannot find file %s\n", __func__, ASCII30BMP);
-				return 1;
-			}
-		}
-		SDL_SetColorKey(temp, SDL_SRCCOLORKEY | SDL_RLEACCEL, SDL_MapRGB(temp->format, WHITE));
-		if((ascii = SDL_DisplayFormat(temp)) == NULL) {
-			printf("%s: SDL_DisplayFormat error: %s\n", __func__, SDL_GetError());
-			return 1;
-		}
-		SDL_FreeSurface(temp);
+	const char *digitsfile, *tilesfile, *asciifile;
+
+	if (xres <= 320) {
+		digitsfile = DIGITS24BMP;
+		tilesfile = TILES24BMP;
+		asciifile = ASCII15BMP;
+	} else {
+		digitsfile = DIGITS48BMP;
+		tilesfile = TILES48BMP;
+		asciifile = ASCII30BMP;
 	}
-	
+
+	if (load_bitmap(&digits, digitsfile, 0, 0, 0, 0) != 0)
+		return 1;
+
+	if (load_bitmap(&tiles, tilesfile,
+			SDL_SRCCOLORKEY | SDL_RLEACCEL, MAGENTA) != 0)
+		return 1;
+	if (load_bitmap(&ascii, asciifile,
+			SDL_SRCCOLORKEY | SDL_RLEACCEL, WHITE) != 0)
+		return 1;
+
 	return 0;
 }
 
