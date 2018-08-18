@@ -52,11 +52,7 @@ int highscoreboard[5][BOARDH * BOARDW];
 int score = 0;
 int disablescoring = FALSE;
 int gametime = GAMETIME;
-Uint32 gametime_ticks = 0;
 Uint32 fps_ticks = 0;
-Uint32 cleardeadpipes_ticks = 0;
-Uint32 fillpipes_ticks = 0;
-Uint32 flashhighscore_ticks = 0;
 long int frames = 0;
 int drawpipearray[BOARDH * BOARDW + 1][3];	/* y|x|filled-or-empty */
 int previewarray[PREVIEWARRAYSIZE];
@@ -192,74 +188,47 @@ int main(int argc, char *argv[]) {
 	
 	/* Initialise new game */
 	initialise_new_game();
-	
+	Uint32 timeout = 0;
 	/* Main game loop */
 	while(quit == 0) {
-		if(game_mode == GAMESHOWHELP) {
-			/***************************************************************************
-			 * GAMESHOWHELP                                                            *
-			 ***************************************************************************/
+		Uint32 ticks;
+
+		do {
+			ticks = SDL_GetTicks();
 			draw_game();
 			manage_user_input();
-		} else if(game_mode == GAMEON) {
-			/***************************************************************************
-			 * GAMEON                                                                  *
-			 ***************************************************************************/
-	 		/* Check to see if the time needs to be updated */
-			if (SDL_GetTicks() - gametime_ticks >= 1000) {
-				redraw = redraw | REDRAWTIMER;
-				gametime_ticks = SDL_GetTicks();
-				gametime = gametime - 1;
-				if (gametime <= 0) {
-					gametime = 0;
-					createdeadpipesarray();
-				}
+			if (!fpstest)	/* Reduce CPU load to almost nothing */
+				SDL_Delay(9);
+		} while (ticks < timeout);
+
+		switch (game_mode) {
+		case GAMEON:
+			timeout = ticks + 1000;
+			redraw = redraw | REDRAWTIMER;
+			gametime = gametime - 1;
+			if (gametime <= 0) {
+				gametime = 0;
+				createdeadpipesarray();
+				timeout = 0;
 			}
-			draw_game();
-			manage_user_input();
-		} else if(game_mode == GAMECLEARDEADPIPES) {
-			/***************************************************************************
-			 * GAMECLEARDEADPIPES                                                      *
-			 ***************************************************************************/
-			if (SDL_GetTicks() - cleardeadpipes_ticks >= CLEARDEADPIPESTIMEOUT) {
-				cleardeadpipes_ticks = SDL_GetTicks();
-				cleardeadpipes();
+			break;
+		case GAMECLEARDEADPIPES:
+			timeout = ticks + CLEARDEADPIPESTIMEOUT;
+			cleardeadpipes();
+			if (game_mode == GAMEFILLPIPES) {
+				timeout = 0;
 			}
-			draw_game();
-			manage_user_input();
-		} else if(game_mode == GAMEFILLPIPES) {
-			/***************************************************************************
-			 * GAMEFILLPIPES                                                           *
-			 ***************************************************************************/
-			if(SDL_GetTicks() - fillpipes_ticks >= FILLPIPESTIMEOUT) {
-				fillpipes_ticks = SDL_GetTicks();
-				fillpipes();
-			}
-			draw_game();
-			manage_user_input();
-		} else if(game_mode == GAMEFLASHHIGHSCORE) {
-			/***************************************************************************
-			 * GAMEFLASHHIGHSCORE                                                      *
-			 ***************************************************************************/
-			if (SDL_GetTicks() - flashhighscore_ticks >= FLASHHIGHSCORETIMEOUT) {
-				flashhighscore_ticks = SDL_GetTicks();
-				redraw = redraw | REDRAWHIGHSCORE;
-				if (flashhighscorestate) {
-					flashhighscorestate = FALSE;
-				} else {
-					flashhighscorestate = TRUE;
-				}
-			}
-			draw_game();
-			manage_user_input();
-		} else if(game_mode == GAMEOVER) {
-			/***************************************************************************
-			 * GAMEOVER                                                                *
-			 ***************************************************************************/
-			draw_game();
-			manage_user_input();
+			break;
+		case GAMEFILLPIPES:
+			timeout = ticks + FILLPIPESTIMEOUT;
+			fillpipes();
+			break;
+		case GAMEFLASHHIGHSCORE:
+			timeout = ticks + FLASHHIGHSCORETIMEOUT;
+			redraw = redraw | REDRAWHIGHSCORE;
+			flashhighscorestate = !flashhighscorestate;
+			break;
 		}
-		if (!fpstest) SDL_Delay(9);	/* Reduce CPU load to almost nothing */
 	}
 	
 	/* Shutdown all subsystems */
@@ -758,7 +727,6 @@ void initialise_new_game(void) {
 	disablescoring = FALSE;
 	flashhighscorestate = FALSE;
 	gametime = GAMETIME;
-	gametime_ticks = SDL_GetTicks();
 	
 	/* Clear the game board array */
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
@@ -1412,7 +1380,6 @@ void createdeadpipesarray(void) {
 	
 	cleardeadpipesy = 0;
 	cleardeadpipesx = 0;
-	cleardeadpipes_ticks = 0;
 	game_mode = GAMECLEARDEADPIPES; /* And off we go next main loop cycle... */
 }
 
@@ -1447,7 +1414,6 @@ void cleardeadpipes(void) {
 	} while (!deadpipefound && !nomorepipes);
 	if (nomorepipes) {
 		fillpipespasscounter = FILLEDCOUNTERBASE;
-		fillpipes_ticks = 0;
 		game_mode = GAMEFILLPIPES;	/* And off we go next main loop cycle... */
 	}
 }
@@ -1500,7 +1466,6 @@ void fillpipes(void) {
 				}
 			}
 			redraw = redraw | REDRAWHIGHSCORE;
-			flashhighscore_ticks = SDL_GetTicks();
 			game_mode = GAMEFLASHHIGHSCORE;
 			
 			#ifdef DEBUG
