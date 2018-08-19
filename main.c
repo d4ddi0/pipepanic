@@ -57,7 +57,6 @@ long int frames = 0;
 int drawpipearray[BOARDH * BOARDW + 1][3];	/* y|x|filled-or-empty */
 int previewarray[PREVIEWARRAYSIZE];
 int pipearray[PIPEARRAYSIZE];
-int pipearraypointer = PIPEARRAYSIZE;
 int boardarray[BOARDH][BOARDW];
 int deadpipesarray[BOARDH][BOARDW];
 int cleardeadpipesy = 0, cleardeadpipesx = 0;
@@ -736,7 +735,6 @@ void initialise_new_game(void) {
 	}
 
 	/* Setup and initialise preview pieces/array. */
-	pipearraypointer = PIPEARRAYSIZE;
 	for (count = 0; count < PREVIEWARRAYSIZE; count++) {
 		previewarray[count] = getnextpipepiece();
 	}
@@ -760,6 +758,8 @@ void initialise_new_game(void) {
    of array refill it and get piece from start. */
 
 int getnextpipepiece(void) {
+	static int pipearraypointer = PIPEARRAYSIZE;
+
 	pipearraypointer++;
 	if (pipearraypointer >= PIPEARRAYSIZE) {
 		fillpipearray();
