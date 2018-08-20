@@ -658,6 +658,13 @@ void draw_game(void) {
 	
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
 		/* Show the help pages */
+
+		/* Draw a black surround */
+		dest.x = gameboard_rect.x - 1;
+		dest.y = gameboard_rect.y - 1;
+		dest.w = gameboard_rect.w + 2;
+		dest.h = gameboard_rect.h + 2;
+		SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
 		/* Draw a white box to cover the game board */
 		SDL_FillRect(screen, &gameboard_rect, SDL_MapRGB(screen->format, WHITE));
 		/* Draw the Exit text and the navigation buttons */
@@ -680,26 +687,7 @@ void draw_game(void) {
 		src.w = 2 * tilew; src.h = tileh;
 		if(SDL_BlitSurface(tiles, &src, screen, &help_exit_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		/* Draw a black surround */
-		if(xres == 240 || xres == 480) {
-			/* Top */
-			dest.x = xres -  BOARDW * tilew;
-			dest.y = 2 * tileh;
-			dest.w = BOARDW * tilew; dest.h = 1;
-			/* Bottom */
-			SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
-			dest.x = xres -  BOARDW * tilew;
-			dest.y = 2 * tileh + BOARDH * tileh - 1;
-			dest.w = BOARDW * tilew; dest.h = 1;
-			SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
-		} else if (xres == 320 || xres == 640){
-			/* Left */
-			dest.x = xres -  BOARDW * tilew;
-			dest.y = 0;
-			dest.w = 1; dest.h = BOARDW * tilew;
-			SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
-		}
-		
+
 		x = xres - (BOARDW - 0.2) * tilew;
 		y = 0.2 * BOARDH; if (xres == 240 || xres == 480) y = 2.2 * tileh;
 		if(helppage == 0) {
@@ -949,6 +937,12 @@ void manage_user_input(void) {
 	}
 }
 
+int mouse_event_in_rect(int mx, int my, SDL_Rect *rect)
+{
+	return (mx >= rect->x && mx < rect->x + rect->w &&
+		my >= rect->y && my < rect->y + rect->h);
+}
+
 void manage_mouse_input(void)
 {
 	int mbut, mx, my, count;
@@ -964,16 +958,11 @@ void manage_mouse_input(void)
 
 	switch(game_mode) {
 	case GAMEON:
-		if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres) && (my >= 0) && (my < yres)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < xres) && (my >= 2 * tileh) && (my < 12 * tileh))) {
+		if (mouse_event_in_rect(mx, my, &gameboard_rect)) {
 			/* Process game board clicks */
 			/* Convert the mouse coordinates to offsets into the board array */
-			if (xres == 320 || xres == 640) {
-				column = (mx - (xres - BOARDW * tilew)) / tilew;
-				row = my / tileh;
-			} else if (xres == 240 || xres == 480) {
-				column = mx / tilew;
-				row = (my - 2 * tileh) / tileh;
-			}
+			column = (mx - gameboard_rect.x) / tilew;
+			row = (my - gameboard_rect.y) / tileh;
 
 			#ifdef DEBUG
 			printf("row column : %i %i\n", row, column);
@@ -1015,7 +1004,7 @@ void manage_mouse_input(void)
 			}
 			printf("\n");
 			#endif
-		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1 * tilew) && (my >= 7.25 * tileh) && (my < 7.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 4 * tilew) && (mx < 5 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
 			/* Process Fill clicks */
 			score = score + gametime * FILLNOWSCORE;
 			gametime = 0;
@@ -1029,13 +1018,13 @@ void manage_mouse_input(void)
 	case GAMEFLASHHIGHSCORE:
 	case GAMEOVER:
 		/* Process New Game clicks */
-		if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 9.25 * tileh) && (my < 9.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 6.9 * tilew) && (mx < 9.9 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+		if (mouse_event_in_rect(mx, my, &new_game_label)) {
 			/* Initialise new game */
 			initialise_new_game();
 			#ifdef DEBUG
 			printf("New Game\n");
 			#endif
-		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 3.7 * tilew) && (mx < 6.7 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh))) {
+		} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
 			/* Process High Score clicks */
 			initialise_new_game();
 			/* Copy the highscoreboard into the board array */
@@ -1050,7 +1039,7 @@ void manage_mouse_input(void)
 			#ifdef DEBUG
 			printf("High Score\n");
 			#endif
-		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1.4 * tilew) && (my >= 8.25 * tileh) && (my < 8.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 5.25 * tilew) && (mx < 6.65 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+		} else if (mouse_event_in_rect(mx, my, &help_label)) {
 			/* Process Help clicks */
 			previous_game_mode = game_mode;
 			game_mode = GAMESHOWHELP;
@@ -1061,16 +1050,11 @@ void manage_mouse_input(void)
 		}
 		break;
 	case GAMESHOWHELP:
-		if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres - (BOARDW - 1) * tilew) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < 1 * tilew) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
-			/* Process Help->Left clicks.
-			   I've purposely made the hit area big. */
+		if (mouse_event_in_rect(mx, my, &help_l_label)) {
 			manage_help_input(SDLK_LEFT);
-		} else if (((xres == 320 || xres == 640) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
-			/* Process Help->Right clicks.
-			   I've purposely made the hit area big. */
+		} else if (mouse_event_in_rect(mx, my, &help_r_label)) {
 			manage_help_input(SDLK_RIGHT);
-		} else if (((xres == 320 || xres == 640) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= yres - 0.75 * tileh) && (my < yres - 0.25 * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= (BOARDH - 0.75) * tileh + 2 * tileh) && (my < (BOARDH - 0.25) * tileh + 2 * tileh))) {
-			/* Process Help->Exit clicks */
+		} else if (mouse_event_in_rect(mx, my, &help_exit_label)) {
 			manage_help_input(SDLK_ESCAPE);
 		}
 	}
