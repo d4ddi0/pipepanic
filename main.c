@@ -84,6 +84,8 @@ void read_rc_file(void);
 void save_rc_file(void);
 void draw_ascii(char *text, int xpos, int ypos);
 void manage_help_input(int input);
+void manage_mouse_input(void);
+
 
 /***************************************************************************
  * Main                                                                    *
@@ -825,177 +827,157 @@ void get_pipe_src_xy(int pipeid, int *x, int *y, int drawpipefilled) {
 /* This manages all user input. */
 
 void manage_user_input(void) {
-	int mbut, mx, my, count;
-	int column = 0, row = 0;
-
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
-			case SDL_KEYDOWN:
-				switch(event.key.keysym.sym) {
-					case SDLK_ESCAPE:	/* Cancel on the Zaurus */
-							if(game_mode == GAMESHOWHELP) {
-								manage_help_input(SDLK_ESCAPE);
-							} else {
-								quit = 1;
-							}
-						break;
-					case SDLK_LEFT:
-							if(game_mode == GAMESHOWHELP) {
-								manage_help_input(SDLK_LEFT);
-							}
-						break;
-					case SDLK_RIGHT:
-							if(game_mode == GAMESHOWHELP) {
-								manage_help_input(SDLK_RIGHT);
-							}
-						break;
-					default:
-						break;
+		case SDL_KEYDOWN:
+			switch(event.key.keysym.sym) {
+				case SDLK_ESCAPE:	/* Cancel on the Zaurus */
+					if (game_mode != GAMESHOWHELP)
+						quit = 1;
+				case SDLK_LEFT:
+				case SDLK_RIGHT:
+					if(game_mode == GAMESHOWHELP) {
+						manage_help_input(event.key.keysym.sym);
+					}
+				default:
+					break;
 				}
 				break;
 			case SDL_QUIT:
 					quit = 1;
 				break;
 			case SDL_MOUSEBUTTONDOWN:
-					mbut = SDL_GetMouseState(&mx, &my);
-
-					#ifdef DEBUG
-					printf("mbut=%i mx=%i my=%i\n", mbut, mx, my);
-					#endif
-
-					switch(mbut) {
-						case SDL_BUTTON_LEFT:
-							/* Process game board clicks */
-							if (game_mode == GAMEON) {
-								if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres) && (my >= 0) && (my < yres)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < xres) && (my >= 2 * tileh) && (my < 12 * tileh))) {
-									/* Convert the mouse coordinates to offsets into the board array */
-									if (xres == 320 || xres == 640) {
-										column = (mx - (xres - BOARDW * tilew)) / tilew;
-										row = my / tileh;
-									} else if (xres == 240 || xres == 480) {
-										column = mx / tilew;
-										row = (my - 2 * tileh) / tileh;
-									}
-
-									#ifdef DEBUG
-									printf("row column : %i %i\n", row, column);
-									#endif
-
-									/* Don't allow replacing of the end points. */
-									if (boardarray[row][column] > 1) {
-										/* Place pipe piece from start of preview array. */
-										if (boardarray[row][column] != NULLPIPEVAL) {
-											score = score + PIPEOVERWRITESCORE;
-										} else {
-											score = score + PIPEPLACEMENTSCORE;
-										}
-										boardarray[row][column] = previewarray[0];
-										/* Move all preview pieces down 1 place. */
-										for (count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
-											previewarray[count] = previewarray[count + 1];
-										}
-										/* Add a new preview piece at the end. */
-										previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
-										/* Mark tile for drawing and redraw everything related */
-										drawpipearray[0][0] = row; drawpipearray[0][1] = column; drawpipearray[0][2] = FALSE;
-										drawpipearray[1][0] = NULLPIPEVAL;
-										redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
-									} else if (boardarray[row][column] == 0) {
-										score = score + gametime * FILLNOWSCORE;
-										gametime = 0;
-										redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-										createdeadpipesarray();
-									}
-
-									#ifdef DEBUG
-									printf("boardarray:-\n");
-									for (row = 0; row < BOARDH; row++) {
-										for (column = 0; column < BOARDW; column++) {
-											printf("%3i ", boardarray[row][column]);
-										}
-										printf("\n");
-									}
-									printf("\n");
-									#endif
-								}
-							}
-							/* Process New Game clicks */
-							if (game_mode == GAMEON || game_mode == GAMEFLASHHIGHSCORE || game_mode == GAMEOVER) {
-								if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 9.25 * tileh) && (my < 9.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 6.9 * tilew) && (mx < 9.9 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
-									/* Initialise new game */
-									initialise_new_game();
-									#ifdef DEBUG
-									printf("New Game\n");
-									#endif
-								}
-							}
-							/* Process Fill clicks */
-							if (game_mode == GAMEON) {
-								if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1 * tilew) && (my >= 7.25 * tileh) && (my < 7.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 4 * tilew) && (mx < 5 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
-									score = score + gametime * FILLNOWSCORE;
-									gametime = 0;
-									redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-									createdeadpipesarray();
-									#ifdef DEBUG
-									printf("Fill\n");
-									#endif
-								}
-							}
-							/* Process High Score clicks */
-							if (game_mode == GAMEON || game_mode == GAMEFLASHHIGHSCORE || game_mode == GAMEOVER) {
-								if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 3.7 * tilew) && (mx < 6.7 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh))) {
-									initialise_new_game();
-									/* Copy the highscoreboard into the board array */
-									for (row = 0; row < BOARDH; row++) {
-										for (column = 0; column < BOARDW; column++) {
-											boardarray[row][column] = highscoreboard[0][row * BOARDH + column];
-										}
-									}
-									gametime = 0;
-									disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
-									createdeadpipesarray();
-									#ifdef DEBUG
-									printf("High Score\n");
-									#endif
-								}
-							}
-							/* Process Help clicks */
-							if (game_mode == GAMEON || game_mode == GAMEFLASHHIGHSCORE || game_mode == GAMEOVER) {
-								if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1.4 * tilew) && (my >= 8.25 * tileh) && (my < 8.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 5.25 * tilew) && (mx < 6.65 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
-									previous_game_mode = game_mode;
-									game_mode = GAMESHOWHELP;
-									redraw = redraw | REDRAWHELP;
-									#ifdef DEBUG
-									printf("Help\n");
-									#endif
-								}
-							}
-							/* Process Help->Left clicks.
-							   I've purposely made the hit area big. */
-							if (game_mode == GAMESHOWHELP) {
-								if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres - (BOARDW - 1) * tilew) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < 1 * tilew) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
-									manage_help_input(SDLK_LEFT);
-								}
-							}
-							/* Process Help->Right clicks.
-							   I've purposely made the hit area big. */
-							if (game_mode == GAMESHOWHELP) {
-								if (((xres == 320 || xres == 640) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
-									manage_help_input(SDLK_RIGHT);
-								}
-							}
-							/* Process Help->Exit clicks */
-							if (game_mode == GAMESHOWHELP) {
-								if (((xres == 320 || xres == 640) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= yres - 0.75 * tileh) && (my < yres - 0.25 * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= (BOARDH - 0.75) * tileh + 2 * tileh) && (my < (BOARDH - 0.25) * tileh + 2 * tileh))) {
-									manage_help_input(SDLK_ESCAPE);
-								}
-							}
-							break;
-						default:
-							break;
-					}
+				manage_mouse_input();
+				break;
 			default:
 				break;
+		}
+	}
+}
+
+void manage_mouse_input(void)
+{
+	int mbut, mx, my, count;
+	int column = 0, row = 0;
+
+	mbut = SDL_GetMouseState(&mx, &my);
+	if (mbut != SDL_BUTTON_LEFT)
+		return;
+
+	#ifdef DEBUG
+	printf("mbut=%i mx=%i my=%i\n", mbut, mx, my);
+	#endif
+
+	switch(game_mode) {
+	case GAMEON:
+		if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres) && (my >= 0) && (my < yres)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < xres) && (my >= 2 * tileh) && (my < 12 * tileh))) {
+			/* Process game board clicks */
+			/* Convert the mouse coordinates to offsets into the board array */
+			if (xres == 320 || xres == 640) {
+				column = (mx - (xres - BOARDW * tilew)) / tilew;
+				row = my / tileh;
+			} else if (xres == 240 || xres == 480) {
+				column = mx / tilew;
+				row = (my - 2 * tileh) / tileh;
+			}
+
+			#ifdef DEBUG
+			printf("row column : %i %i\n", row, column);
+			#endif
+
+			/* Don't allow replacing of the end points. */
+			if (boardarray[row][column] > 1) {
+				/* Place pipe piece from start of preview array. */
+				if (boardarray[row][column] != NULLPIPEVAL) {
+					score = score + PIPEOVERWRITESCORE;
+				} else {
+					score = score + PIPEPLACEMENTSCORE;
+				}
+				boardarray[row][column] = previewarray[0];
+				/* Move all preview pieces down 1 place. */
+				for (count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
+					previewarray[count] = previewarray[count + 1];
+				}
+				/* Add a new preview piece at the end. */
+				previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
+				/* Mark tile for drawing and redraw everything related */
+				drawpipearray[0][0] = row; drawpipearray[0][1] = column; drawpipearray[0][2] = FALSE;
+				drawpipearray[1][0] = NULLPIPEVAL;
+				redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
+			} else if (boardarray[row][column] == 0) {
+				score = score + gametime * FILLNOWSCORE;
+				gametime = 0;
+				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
+				createdeadpipesarray();
+			}
+
+			#ifdef DEBUG
+			printf("boardarray:-\n");
+			for (row = 0; row < BOARDH; row++) {
+				for (column = 0; column < BOARDW; column++) {
+					printf("%3i ", boardarray[row][column]);
+				}
+				printf("\n");
+			}
+			printf("\n");
+			#endif
+		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1 * tilew) && (my >= 7.25 * tileh) && (my < 7.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 4 * tilew) && (mx < 5 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+			/* Process Fill clicks */
+			score = score + gametime * FILLNOWSCORE;
+			gametime = 0;
+			redraw = redraw | REDRAWSCORE | REDRAWTIMER;
+			createdeadpipesarray();
+			#ifdef DEBUG
+			printf("Fill\n");
+			#endif
+		}
+		/* No break. fall through for GAMEON */
+	case GAMEFLASHHIGHSCORE:
+	case GAMEOVER:
+		/* Process New Game clicks */
+		if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 9.25 * tileh) && (my < 9.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 6.9 * tilew) && (mx < 9.9 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+			/* Initialise new game */
+			initialise_new_game();
+			#ifdef DEBUG
+			printf("New Game\n");
+			#endif
+		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 3 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 3.7 * tilew) && (mx < 6.7 * tilew) && (my >= 0.25 * tileh) && (my < 0.75 * tileh))) {
+			/* Process High Score clicks */
+			initialise_new_game();
+			/* Copy the highscoreboard into the board array */
+			for (row = 0; row < BOARDH; row++) {
+				for (column = 0; column < BOARDW; column++) {
+					boardarray[row][column] = highscoreboard[0][row * BOARDH + column];
+				}
+			}
+			gametime = 0;
+			disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
+			createdeadpipesarray();
+			#ifdef DEBUG
+			printf("High Score\n");
+			#endif
+		} else if (((xres == 320 || xres == 640) && (mx >= 0) && (mx < 1.4 * tilew) && (my >= 8.25 * tileh) && (my < 8.75 * tileh)) || ((xres == 240 || xres == 480) && (mx >= 5.25 * tilew) && (mx < 6.65 * tilew) && (my >= 12.43 * tileh) && (my < 12.93 * tileh))) {
+			/* Process Help clicks */
+			previous_game_mode = game_mode;
+			game_mode = GAMESHOWHELP;
+			redraw = redraw | REDRAWHELP;
+			#ifdef DEBUG
+			printf("Help\n");
+			#endif
+		}
+		break;
+	case GAMESHOWHELP:
+		if (((xres == 320 || xres == 640) && (mx >= xres - BOARDW * tilew) && (mx < xres - (BOARDW - 1) * tilew) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= 0) && (mx < 1 * tilew) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
+			/* Process Help->Left clicks.
+			   I've purposely made the hit area big. */
+			manage_help_input(SDLK_LEFT);
+		} else if (((xres == 320 || xres == 640) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh) && (my < BOARDH * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 1 * tilew) && (mx < xres) && (my >= (BOARDH - 1) * tileh + 2 * tileh) && (my < BOARDH * tileh + 2 * tileh))) {
+			/* Process Help->Right clicks.
+			   I've purposely made the hit area big. */
+			manage_help_input(SDLK_RIGHT);
+		} else if (((xres == 320 || xres == 640) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= yres - 0.75 * tileh) && (my < yres - 0.25 * tileh)) || ((xres == 240 || xres == 480) && (mx >= xres - 5.6 * tilew) && (mx < xres - 4.4 * tilew) && (my >= (BOARDH - 0.75) * tileh + 2 * tileh) && (my < (BOARDH - 0.25) * tileh + 2 * tileh))) {
+			/* Process Help->Exit clicks */
+			manage_help_input(SDLK_ESCAPE);
 		}
 	}
 }
