@@ -35,7 +35,6 @@ int digith = 48;
 int asciiw = 30;
 int asciih = 30;
 int sdl_fullscreen = FALSE;
-int fpstest = 0;
 SDL_Surface *screen;
 SDL_Surface *digits;
 SDL_Surface *tiles;
@@ -135,7 +134,6 @@ int main(int argc, char *argv[]) {
 				printf("  -640x480   Suitable for the C Series\n");
 				printf("  -480x640   Suitable for the SL6000\n");
 				printf("  -f         Run the game fullscreen\n");
-				printf("  -fpstest   Run a 10s fps test and quit\n\n");
 				return 0;
 			} else if (!strcmp(argv[count], "-240x320")) {
 				xres = 240; yres = 320;
@@ -149,8 +147,6 @@ int main(int argc, char *argv[]) {
 			} else if (!strcmp(argv[count], "-480x640")) {
 				xres = 480; yres = 640;
 				tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
-			} else if (!strcmp(argv[count], "-fpstest")) {
-				fpstest = 1;
 			} else if (!strcmp(argv[count], "-f")) {
 				sdl_fullscreen = SDL_FULLSCREEN;
 			} else {
@@ -196,8 +192,7 @@ int main(int argc, char *argv[]) {
 			ticks = SDL_GetTicks();
 			draw_game();
 			manage_user_input();
-			if (!fpstest)	/* Reduce CPU load to almost nothing */
-				SDL_Delay(9);
+			SDL_Delay(9);
 		} while (ticks < timeout);
 
 		switch (game_mode) {
@@ -232,10 +227,6 @@ int main(int argc, char *argv[]) {
 	
 	/* Shutdown all subsystems */
 	SDL_Quit();
-	
-	/* Show fps if requested */
-	if (fpstest) printf("fps=%li\n", frames / 10);
-
 	return 0;
 }
 
@@ -357,8 +348,6 @@ void draw_game(void) {
 	SDL_Rect src, dest;
 	int row, column, x, y;
 
-	if (fpstest) redraw = REDRAWALL;
-	
 	if ((redraw & REDRAWBOARD) == REDRAWBOARD) {
 		/* Paint the whole screen yellow. */
 		dest.x = dest.y = 0; dest.w = screen->w; dest.h = screen->h;
@@ -634,11 +623,6 @@ void draw_game(void) {
 	
 	if (redraw != REDRAWNONE) SDL_Flip(screen);
 	
-	if (fpstest) {
-		frames++;
-		if (SDL_GetTicks() - fps_ticks >= 10000) quit = 1;
-	}
-	
 	redraw = REDRAWNONE;
 }
 
@@ -744,11 +728,6 @@ void initialise_new_game(void) {
 	boardarray[rand() % BOARDH][BOARDW - 1] = 0;	/* yx */
 	
 	drawpipearray[0][0] = NULLPIPEVAL;
-	
-	if (fpstest) {
-		fps_ticks = SDL_GetTicks();
-		gametime = 10;
-	}
 }
 
 /***************************************************************************
@@ -854,39 +833,30 @@ void manage_user_input(void) {
 			case SDL_KEYDOWN:
 				switch(event.key.keysym.sym) {
 					case SDLK_ESCAPE:	/* Cancel on the Zaurus */
-						if (!fpstest) {
 							if(game_mode == GAMESHOWHELP) {
 								manage_help_input(SDLK_ESCAPE);
 							} else {
 								quit = 1;
 							}
-						}
 						break;
 					case SDLK_LEFT:
-						if (!fpstest) {
 							if(game_mode == GAMESHOWHELP) {
 								manage_help_input(SDLK_LEFT);
 							}
-						}
 						break;
 					case SDLK_RIGHT:
-						if (!fpstest) {
 							if(game_mode == GAMESHOWHELP) {
 								manage_help_input(SDLK_RIGHT);
 							}
-						}
 						break;
 					default:
 						break;
 				}
 				break;
 			case SDL_QUIT:
-				if (!fpstest) {
 					quit = 1;
-				}
 				break;
 			case SDL_MOUSEBUTTONDOWN:
-				if (!fpstest) {
 					mbut = SDL_GetMouseState(&mx, &my);
 
 					#ifdef DEBUG
@@ -1024,7 +994,6 @@ void manage_user_input(void) {
 						default:
 							break;
 					}
-				}
 			default:
 				break;
 		}
