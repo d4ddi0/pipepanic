@@ -57,7 +57,11 @@ int drawpipearray[BOARDH * BOARDW + 1][3];	/* y|x|filled-or-empty */
 int previewarray[PREVIEWARRAYSIZE];
 int pipearray[PIPEARRAYSIZE];
 int boardarray[BOARDH][BOARDW];
+SDL_Rect tile_rects[BOARDH][BOARDW];
 int deadpipesarray[BOARDH][BOARDW];
+SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
+	new_game_label, gameboard_rect, help_l_label, help_r_label,
+	help_exit_label;
 int cleardeadpipesy = 0, cleardeadpipesx = 0;
 int fillpipespasscounter = FILLEDCOUNTERBASE;
 int flashhighscorestate = FALSE;
@@ -85,6 +89,7 @@ void save_rc_file(void);
 void draw_ascii(char *text, int xpos, int ypos);
 void manage_help_input(int input);
 void manage_mouse_input(void);
+void setup_gameboard(void);
 
 
 /***************************************************************************
@@ -184,6 +189,7 @@ int main(int argc, char *argv[]) {
 	if (load_bitmaps()) exit(1);
 	
 	/* Initialise new game */
+	setup_gameboard();
 	initialise_new_game();
 	Uint32 timeout = 0;
 	/* Main game loop */
@@ -341,6 +347,127 @@ int load_bitmaps(void) {
 	return 0;
 }
 
+void setup_gameboard(void)
+{
+	int row, column, x, y;
+
+	y = (xres == 240 || xres == 480)? 2 * tileh : 0;
+	for (row = 0; row < BOARDH; row++) {
+		x = xres - BOARDW * tilew;
+		for (column = 0; column < BOARDW; column++) {
+			tile_rects[row][column].w = tilew;
+			tile_rects[row][column].h = tileh;
+			tile_rects[row][column].x = x;
+			tile_rects[row][column].y = y;
+			x += tilew;
+		}
+		y += tileh;
+	}
+
+	if (xres == 240 || xres == 480) {
+		hiscore_label.y = 0;
+		hiscore_label.x = 3.7 * tilew;
+		hiscore_label.w = 3 * tilew;
+		hiscore_label.h = tileh;
+
+		score_label.x = 0;
+		score_label.y = 0 ;
+		score_label.w = 2 * tilew;
+		score_label.h = tileh;
+
+		time_label.x = 7.6 * tilew;
+		time_label.y = 0 ;
+		time_label.w = 3 * tilew;
+		time_label.h = tileh;
+
+		fill_label.x = 4 * tilew;
+		fill_label.y = 12.18 * tileh;
+		fill_label.w = tilew;
+		fill_label.h = tileh;
+
+		help_label.x = 5.25 * tilew;
+		help_label.y = 12.18 * tileh;
+		help_label.w = 2 * tilew;
+		help_label.h = tileh;
+
+		new_game_label.x = 6.9 * tilew;
+		new_game_label.y = 12.18 * tileh;
+		new_game_label.w = 3 * tilew;
+		new_game_label.h = tileh;
+
+		gameboard_rect.x = xres -  BOARDW * tilew;
+		gameboard_rect.y = 2 * tileh;
+		gameboard_rect.w = BOARDW * tilew;
+		gameboard_rect.h = BOARDH * tileh;
+
+		help_l_label.x = 0 ;
+		help_l_label.y = (BOARDH - 1) * tileh + 2 * tileh;
+		help_l_label.w = tilew;
+		help_l_label.h = tileh;
+
+		help_r_label.x = xres - tilew;
+		help_r_label.y = (BOARDH - 1) * tileh + 2 * tileh;
+		help_r_label.w = tilew;
+		help_r_label.h = tileh;
+
+		help_exit_label.x = xres - 5.6 * tilew;
+		help_exit_label.y = (BOARDH - 1) * tileh + 2 * tileh;
+		help_exit_label.w = 2 * tilew;
+		help_exit_label.h = tileh;
+	} else {
+		hiscore_label.y = 0;
+		hiscore_label.x =  0;
+		hiscore_label.w = 3 * tilew;
+		hiscore_label.h = tileh;
+
+		score_label.x = 0;
+		score_label.y =  2 * tileh;
+		score_label.w = 2 * tilew;
+		score_label.h = tileh;
+
+		time_label.x =  0;
+		time_label.y =  4 * tileh;
+		time_label.w = 3 * tilew;
+		time_label.h = tileh;
+
+		fill_label.x =  0;
+		fill_label.y =  7 * tileh;
+		fill_label.w = tilew;
+		fill_label.h = tileh;
+
+		help_label.x =  0;
+		help_label.y =  8 * tileh;
+		help_label.w = 2 * tilew;
+		help_label.h = tileh;
+
+		new_game_label.x =  0;
+		new_game_label.y =  9 * tileh;
+		new_game_label.w = 3 * tilew;
+		new_game_label.h = tileh;
+
+		gameboard_rect.x = xres -  BOARDW * tilew;
+		gameboard_rect.y =  0;
+		gameboard_rect.w = BOARDW * tilew;
+		gameboard_rect.h = BOARDH * tileh;
+
+		help_l_label.x = xres - BOARDW * tilew;
+		help_l_label.y =  (BOARDH - 1) * tileh;
+		help_l_label.w = tilew;
+		help_l_label.h = tileh;
+
+		help_r_label.x = xres - tilew;
+		help_r_label.y =  (BOARDH - 1) * tileh;
+		help_r_label.w = tilew;
+		help_r_label.h = tileh;
+
+		help_exit_label.x = xres - 5.6 * tilew;
+		help_exit_label.y =  (BOARDH - 1) * tileh;
+		help_exit_label.w = 2 * tilew;
+		help_exit_label.h = tileh;
+	}
+
+}
+
 /***************************************************************************
  * Draw Game                                                               *
  ***************************************************************************/
@@ -358,72 +485,51 @@ void draw_game(void) {
 		/* Draw all the game board background tiles. */
 		src.x = 4 * tilew; src.y = 6 * tileh;
 		src.w = tilew; src.h = tileh;
-		dest.y = 0; if (xres == 240 || xres == 480) dest.y = 2 * tileh;
-		dest.w = tilew; dest.h = tileh;
 		for (row = 0; row < BOARDH; row++) {
-			dest.x = xres -  BOARDW * tilew;
 			for (column = 0; column < BOARDW; column++) {
-				if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+				if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[row][column]) < 0)
 					printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-				dest.x = dest.x + tilew;
 			}
-			dest.y = dest.y + tileh;
 		}
 
 		/* Draw all the text. */
 		/* High Score. */
 		src.x = 0 * tilew; src.y = 8 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		dest.x = dest.y = 0; if (xres == 240 || xres == 480) dest.x = 3.7 * tilew;
-		dest.w = 3 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &hiscore_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 
 		/* Score. */
 		src.x = 3 * tilew; src.y = 8 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		dest.x = 0; dest.y = 2 * tileh; if (xres == 240 || xres == 480) dest.y = 0;
-		dest.w = 2 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &score_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 
 		/* Time (s). */
 		src.x = 0 * tilew; src.y = 9 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		dest.x = 0; if (xres == 240 || xres == 480) dest.x = 7.6 * tilew;
-		dest.y = 4 * tileh; if (xres == 240 || xres == 480) dest.y = 0;
-		dest.w = 3 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &time_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 
 		/* Fill. */
 		src.x = 3 * tilew; src.y = 10 * tileh;
 		src.w = tilew; src.h = tileh;
-		dest.x = 0; if (xres == 240 || xres == 480) dest.x = 4 * tilew;
-		dest.y = 7 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &fill_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 
 		/* Help. */
 		src.x = 3 * tilew; src.y = 9 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		dest.x = 0; if (xres == 240 || xres == 480) dest.x = 5.25 * tilew;
-		dest.y = 8 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = 3 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &help_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		
+
 		/* New Game. */
 		src.x = 0 * tilew; src.y = 10 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		dest.x = 0; if (xres == 240 || xres == 480) dest.x = 6.9 * tilew;
-		dest.y = 9 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = 3 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &new_game_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 	}
-	
+
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
 		/* Draw any pipes found in the board array. 
 		   NOTE that this doesn't draw the background tile first.
@@ -553,38 +659,26 @@ void draw_game(void) {
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
 		/* Show the help pages */
 		/* Draw a white box to cover the game board */
-		dest.x = xres -  BOARDW * tilew;
-		dest.y = 0; if (xres == 240 || xres == 480) dest.y = 2 * tileh;
-		dest.w = BOARDW * tilew; dest.h = BOARDH * tileh;
-		SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, WHITE));
+		SDL_FillRect(screen, &gameboard_rect, SDL_MapRGB(screen->format, WHITE));
 		/* Draw the Exit text and the navigation buttons */
 		if(helppage > 0) {
 			/* Left arrow */
 			src.x = 2 * tilew; src.y = 7 * tileh;
 			src.w = tilew; src.h = tileh;
-			dest.x = xres - BOARDW * tilew; if (xres == 240 || xres == 480) dest.x = 0;
-			dest.y = (BOARDH - 1) * tileh; if (xres == 240 || xres == 480) dest.y = (BOARDH - 1) * tileh + 2 * tileh;
-			dest.w = tilew; dest.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+			if(SDL_BlitSurface(tiles, &src, screen, &help_l_label) < 0)
 				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 		}
 		if(helppage < HELPPAGES - 1) {
 			/* Right arrow */
 			src.x = 4 * tilew; src.y = 10 * tileh;
 			src.w = tilew; src.h = tileh;
-			dest.x = xres - tilew;
-			dest.y = (BOARDH - 1) * tileh; if (xres == 240 || xres == 480) dest.y = (BOARDH - 1) * tileh + 2 * tileh;
-			dest.w = tilew; dest.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+			if(SDL_BlitSurface(tiles, &src, screen, &help_r_label) < 0)
 				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 		}
 		/* Exit */
 		src.x = 3 * tilew; src.y = 7 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		dest.x = xres - 5.6 * tilew; 
-		dest.y = (BOARDH - 1) * tileh; if (xres == 240 || xres == 480) dest.y = (BOARDH - 1) * tileh + 2 * tileh;
-		dest.w = 2 * tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(tiles, &src, screen, &help_exit_label) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 		/* Draw a black surround */
 		if(xres == 240 || xres == 480) {
