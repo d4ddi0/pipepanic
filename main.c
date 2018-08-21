@@ -68,7 +68,8 @@ int deadpipesarray[BOARDH][BOARDW];
 SDL_Rect digit_src[11];
 SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
-	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4];
+	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4],
+	preview_rects[PREVIEWARRAYSIZE];
 int cleardeadpipesy = 0, cleardeadpipesx = 0;
 int fillpipespasscounter = FILLEDCOUNTERBASE;
 int flashhighscorestate = FALSE;
@@ -365,6 +366,19 @@ void setup_digits(SDL_Rect *label, int len, int xpos, int ypos) {
 	}
 }
 
+void setup_preview_rects(void)
+{
+	int x = (xres == 240 || xres == 480)? 0.09 * tilew : 0.09 * tilew;
+	int y = (xres == 240 || xres == 480)? 12.18 * tileh : 6 * tileh;
+
+	for (int i = 0; i < ARRAYSIZE(preview_rects); ++i) {
+		preview_rects[i].x = x + (i * tilew);
+		preview_rects[i].y = y;
+		preview_rects[i].w = tilew;
+		preview_rects[i].h = tileh;
+	}
+}
+
 void setup_digit_src_rects(void) {
 	for (int i = 0; i < 11; ++i) {
 		digit_src[i].x= i * digitw;
@@ -395,6 +409,9 @@ void setup_gameboard(void)
 		}
 		y += tileh;
 	}
+
+	setup_preview_rects();
+
 	x = (xres == 240 || xres == 480)? 4 * tilew : 0.15 * tilew;
 	y = 0.9 * tileh;
 	setup_digits(hiscoredigits, ARRAYSIZE(hiscoredigits), x, y);
@@ -512,6 +529,25 @@ void setup_gameboard(void)
 
 }
 
+void draw_preview(void)
+{
+	SDL_Rect src;
+	int x = 0, y = 0;
+
+	for (int i = 0; i < ARRAYSIZE(preview_rects); ++i) {
+		src.x = (i < 2)? tilew : 0;
+		src.y = 7 * tileh;
+		src.w = tilew;
+		src.h = tileh;
+		if(SDL_BlitSurface(tiles, &src, screen, &preview_rects[i]) < 0)
+			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		get_pipe_src_xy(previewarray[2 - i], &x, &y, FALSE);
+		src.x = x; src.y = y;
+		if(SDL_BlitSurface(tiles, &src, screen, &preview_rects[i]) < 0)
+			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+	}
+}
+
 /***************************************************************************
  * Draw Game                                                               *
  ***************************************************************************/
@@ -612,46 +648,9 @@ void draw_game(void) {
 		draw_digits(score, scoredigits, ARRAYSIZE(scoredigits));
 	}
 	
+
 	if ((redraw & REDRAWPREVIEW) == REDRAWPREVIEW) {
-		/* Draw preview array */
-		/* Left */
-		src.x = 1 * tilew; src.y = 7 * tileh;
-		src.w = tilew; src.h = tileh;
-		dest.x = 0.09 * tilew; if (xres == 240 || xres == 480) dest.x = 0.09 * tilew;
-		dest.y = 6 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		get_pipe_src_xy(previewarray[2], &x, &y, FALSE);
-		src.x = x; src.y = y;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-
-		/* Middle */
-		src.x = 1 * tilew; src.y = 7 * tileh;
-		src.w = tilew; src.h = tileh;
-		dest.x = 1.18 * tilew; if (xres == 240 || xres == 480) dest.x = 1.18 * tilew;
-		dest.y = 6 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		get_pipe_src_xy(previewarray[1], &x, &y, FALSE);
-		src.x = x; src.y = y;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-
-		/* Right */
-		src.x = 0; src.y = 7 * tileh;
-		src.w = tilew; src.h = tileh;
-		dest.x = 2.27 * tilew; if (xres == 240 || xres == 480) dest.x = 2.27 * tilew;
-		dest.y = 6 * tileh; if (xres == 240 || xres == 480) dest.y = 12.18 * tileh;
-		dest.w = tilew; dest.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		get_pipe_src_xy(previewarray[0], &x, &y, FALSE);
-		src.x = x; src.y = y;
-		if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		draw_preview();
 	}
 
 	if ((redraw & REDRAWTILE) == REDRAWTILE) {
