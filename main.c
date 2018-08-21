@@ -25,6 +25,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 #include <time.h>
 #include "main.h"
 
+struct drawpipe {
+	int row;
+	int col;
+	int filled;
+};
+
 /* Variable declarations */
 int xres = 640;
 int yres = 480;
@@ -53,7 +59,7 @@ int disablescoring = FALSE;
 int gametime = GAMETIME;
 Uint32 fps_ticks = 0;
 long int frames = 0;
-int drawpipearray[BOARDH * BOARDW + 1][3];	/* y|x|filled-or-empty */
+struct drawpipe drawpipearray[BOARDH * BOARDW + 1];
 int previewarray[PREVIEWARRAYSIZE];
 int pipearray[PIPEARRAYSIZE];
 int boardarray[BOARDH][BOARDW];
@@ -626,13 +632,10 @@ void draw_game(void) {
 		/* Draw one or more background tiles within the board.
 		   The offsets into the board are in the draw pipes array */
 		row = 0;
-		while(drawpipearray[row][0] != NULLPIPEVAL) {
+		while(drawpipearray[row].row != NULLPIPEVAL) {
 			src.x = 4 * tilew; src.y = 6 * tileh;
 			src.w = tilew; src.h = tileh;
-			dest.x = (xres - BOARDW * tilew) + drawpipearray[row][1] * tilew; if (xres == 240 || xres == 480) dest.x = drawpipearray[row][1] * tilew;
-			dest.y = drawpipearray[row][0] * tileh; if (xres == 240 || xres == 480) dest.y = drawpipearray[row][0] * tileh + 2 * tileh;
-			dest.w = tilew; dest.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+			if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]) < 0)
 				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 			row++;
 		}
@@ -643,12 +646,12 @@ void draw_game(void) {
 		   The offsets into the board array are in the
 		   draw pipes array */
 		row = 0;
-		while(drawpipearray[row][0] != NULLPIPEVAL) {
-			get_pipe_src_xy(boardarray[drawpipearray[row][0]][drawpipearray[row][1]], &x, &y, drawpipearray[row][2]);
+		while(drawpipearray[row].row != NULLPIPEVAL) {
+			get_pipe_src_xy(boardarray[drawpipearray[row].row][drawpipearray[row].col], &x, &y, drawpipearray[row].filled);
 			src.x = x; src.y = y;
 			src.w = tilew; src.h = tileh;
-			dest.x = (xres - BOARDW * tilew) + drawpipearray[row][1] * tilew; if (xres == 240 || xres == 480) dest.x = drawpipearray[row][1] * tilew;
-			dest.y = drawpipearray[row][0] * tileh; if (xres == 240 || xres == 480) dest.y = drawpipearray[row][0] * tileh + 2 * tileh;
+			dest.x = (xres - BOARDW * tilew) + drawpipearray[row].col * tilew; if (xres == 240 || xres == 480) dest.x = drawpipearray[row].col * tilew;
+			dest.y = drawpipearray[row].row * tileh; if (xres == 240 || xres == 480) dest.y = drawpipearray[row].row * tileh + 2 * tileh;
 			dest.w = tilew; dest.h = tileh;
 			if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
 				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
@@ -811,7 +814,7 @@ void initialise_new_game(void) {
 	boardarray[rand() % BOARDH][0] = 1;	/* yx */
 	boardarray[rand() % BOARDH][BOARDW - 1] = 0;	/* yx */
 	
-	drawpipearray[0][0] = NULLPIPEVAL;
+	drawpipearray[0].row = NULLPIPEVAL;
 }
 
 /***************************************************************************
@@ -984,8 +987,8 @@ void manage_mouse_input(void)
 				/* Add a new preview piece at the end. */
 				previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
 				/* Mark tile for drawing and redraw everything related */
-				drawpipearray[0][0] = row; drawpipearray[0][1] = column; drawpipearray[0][2] = FALSE;
-				drawpipearray[1][0] = NULLPIPEVAL;
+				drawpipearray[0].row = row; drawpipearray[0].col = column; drawpipearray[0].filled = FALSE;
+				drawpipearray[1].row = NULLPIPEVAL;
 				redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
 			} else if (boardarray[row][column] == 0) {
 				score = score + gametime * FILLNOWSCORE;
@@ -1085,9 +1088,9 @@ void manage_help_input(int input) {
 						for (colloop = 0; colloop < BOARDW; colloop++) {
 							if (deadpipesarray[rowloop][colloop] == passcounter || deadpipesarray[rowloop][colloop] - LEAKYPIPEVAL == passcounter) {
 								/* Mark pipe to be drawn */
-								drawpipearray[count][0] = rowloop;
-								drawpipearray[count][1] = colloop;
-								drawpipearray[count][2] = filled;
+								drawpipearray[count].row = rowloop;
+								drawpipearray[count].col = colloop;
+								drawpipearray[count].filled = filled;
 								count++;
 								/* If a leaky pipe is found then after this pass all pipes will be unfilled. */
 								if (deadpipesarray[rowloop][colloop] >= FILLEDCOUNTERBASE + LEAKYPIPEVAL) {
@@ -1097,9 +1100,9 @@ void manage_help_input(int input) {
 								nomorepipes = FALSE;
 							} else if (deadpipesarray[rowloop][colloop] == DEADPIPEVAL && boardarray[rowloop][colloop] == 1 && !endpipefound) {
 								/* Mark the unvisited end pipe for drawing */
-								drawpipearray[count][0] = rowloop;
-								drawpipearray[count][1] = colloop;
-								drawpipearray[count][2] = FALSE;
+								drawpipearray[count].row = rowloop;
+								drawpipearray[count].col = colloop;
+								drawpipearray[count].filled = FALSE;
 								count++;
 								endpipefound = TRUE;	/* Only record it once */
 							}
@@ -1108,7 +1111,7 @@ void manage_help_input(int input) {
 					if(leakypipefound) filled = FALSE;	/* Draw unfilled pipes from now on */
 					passcounter++;
 				} while(!nomorepipes);
-				drawpipearray[count][0] = NULLPIPEVAL;
+				drawpipearray[count].row = NULLPIPEVAL;
 				redraw = (redraw | REDRAWPIPE) ^ REDRAWALLPIPES;
 			}
 			#ifdef DEBUG
@@ -1425,8 +1428,8 @@ void cleardeadpipes(void) {
 		/* Officially if the endpoint is unvisited it's dead, but we'll leave it onscreen anyway. */
 		if (deadpipesarray[cleardeadpipesy][cleardeadpipesx] == DEADPIPEVAL && boardarray[cleardeadpipesy][cleardeadpipesx] != 1) {
 			/* Erase dead pipe from the screen. */
-			drawpipearray[0][0] = cleardeadpipesy; drawpipearray[0][1] = cleardeadpipesx;
-			drawpipearray[1][0] = NULLPIPEVAL;
+			drawpipearray[0].row = cleardeadpipesy; drawpipearray[0].col = cleardeadpipesx;
+			drawpipearray[1].row = NULLPIPEVAL;
 			redraw = redraw | REDRAWTILE;
 			/* Erase dead pipe from the board array. */
 			boardarray[cleardeadpipesy][cleardeadpipesx] = NULLPIPEVAL;
@@ -1463,10 +1466,10 @@ void fillpipes(void) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
 			if (deadpipesarray[rowloop][colloop] == fillpipespasscounter || deadpipesarray[rowloop][colloop] - LEAKYPIPEVAL == fillpipespasscounter) {
 				/* Draw filled pipe. */
-				drawpipearray[count][0] = rowloop;
-				drawpipearray[count][1] = colloop;
-				drawpipearray[count][2] = TRUE;
-				drawpipearray[count + 1][0] = NULLPIPEVAL;
+				drawpipearray[count].row = rowloop;
+				drawpipearray[count].col = colloop;
+				drawpipearray[count].filled = TRUE;
+				drawpipearray[count + 1].row = NULLPIPEVAL;
 				count++;
 				redraw = redraw | REDRAWTILE | REDRAWPIPE;
 				/* When displaying the highscoreboard ignore scoring */
