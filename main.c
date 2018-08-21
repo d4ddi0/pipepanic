@@ -675,10 +675,7 @@ void draw_game(void) {
 			get_pipe_src_xy(boardarray[drawpipearray[row].row][drawpipearray[row].col], &x, &y, drawpipearray[row].filled);
 			src.x = x; src.y = y;
 			src.w = tilew; src.h = tileh;
-			dest.x = (xres - BOARDW * tilew) + drawpipearray[row].col * tilew; if (xres == 240 || xres == 480) dest.x = drawpipearray[row].col * tilew;
-			dest.y = drawpipearray[row].row * tileh; if (xres == 240 || xres == 480) dest.y = drawpipearray[row].row * tileh + 2 * tileh;
-			dest.w = tilew; dest.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+			if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]) < 0)
 				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 			row++;
 		}
