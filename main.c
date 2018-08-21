@@ -65,9 +65,10 @@ int pipearray[PIPEARRAYSIZE];
 int boardarray[BOARDH][BOARDW];
 SDL_Rect tile_rects[BOARDH][BOARDW];
 int deadpipesarray[BOARDH][BOARDW];
+SDL_Rect digit_src[11];
 SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
-	help_exit_label;
+	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4];
 int cleardeadpipesy = 0, cleardeadpipesx = 0;
 int fillpipespasscounter = FILLEDCOUNTERBASE;
 int flashhighscorestate = FALSE;
@@ -80,7 +81,7 @@ int get_machine_id(void);
 void clear_screen(void);
 int load_bitmaps(void);
 void draw_game(void);
-void draw_digits(int value, int digitcount, int xpos, int ypos);
+static void draw_digits(int value, SDL_Rect *label, int len);
 void initialise_new_game(void);
 void manage_user_input(void);
 int getnextpipepiece(void);
@@ -96,6 +97,7 @@ void draw_ascii(char *text, int xpos, int ypos);
 void manage_help_input(int input);
 void manage_mouse_input(void);
 void setup_gameboard(void);
+void setup_img_src_rects(void);
 
 
 /***************************************************************************
@@ -193,6 +195,7 @@ int main(int argc, char *argv[]) {
 	#endif
 	
 	if (load_bitmaps()) exit(1);
+	setup_img_src_rects();
 	
 	/* Initialise new game */
 	setup_gameboard();
@@ -353,6 +356,29 @@ int load_bitmaps(void) {
 	return 0;
 }
 
+void setup_digits(SDL_Rect *label, int len, int xpos, int ypos) {
+	for (int i = 0; i <  len; ++i) {
+		label[i].x = xpos + (digitw * i);
+		label[i].y = ypos;
+		label[i].w = digitw;
+		label[i].h = digith;
+	}
+}
+
+void setup_digit_src_rects(void) {
+	for (int i = 0; i < 11; ++i) {
+		digit_src[i].x= i * digitw;
+		digit_src[i].y= 0;
+		digit_src[i].w = digitw;
+		digit_src[i].h= digith;
+	}
+}
+
+void setup_img_src_rects(void)
+{
+	setup_digit_src_rects();
+}
+
 void setup_gameboard(void)
 {
 	int row, column, x, y;
@@ -369,6 +395,18 @@ void setup_gameboard(void)
 		}
 		y += tileh;
 	}
+	x = (xres == 240 || xres == 480)? 4 * tilew : 0.15 * tilew;
+	y = 0.9 * tileh;
+	setup_digits(hiscoredigits, ARRAYSIZE(hiscoredigits), x, y);
+
+	x = (xres == 240 || xres == 480)? 8 * tilew : 0.15 * tilew;
+	y = (xres == 240 || xres == 480)? 0.9 * tileh : 4.9 * tileh;
+	setup_digits(timedigits, ARRAYSIZE(timedigits), x, y);
+
+	x = 0.15 * tilew;
+	y = (xres == 240 || xres == 480)?  0.9 * tileh : 2.9 * tileh;
+	setup_digits(scoredigits, ARRAYSIZE(scoredigits), x, y);
+
 
 	if (xres == 240 || xres == 480) {
 		hiscore_label.y = 0;
@@ -541,49 +579,37 @@ void draw_game(void) {
 		   NOTE that this doesn't draw the background tile first.
 		   This is done in REDRAWBOARD above. */
 		src.w = tilew; src.h = tileh;
-		dest.y = 0; if (xres == 240 || xres == 480) dest.y = 2 * tileh;
-		dest.w = tilew; dest.h = tileh;
 		for (row = 0; row < BOARDH; row++) {
-			dest.x = xres -  BOARDW * tilew;
 			for (column = 0; column < BOARDW; column++) {
 				if (boardarray[row][column] != NULLPIPEVAL) {
 					get_pipe_src_xy(boardarray[row][column], &x, &y, FALSE);
 					src.x = x; src.y = y;
-					if(SDL_BlitSurface(tiles, &src, screen, &dest) < 0)
+					if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[row][column]) < 0)
 						printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 				}
-				dest.x = dest.x + tilew;
 			}
-			dest.y = dest.y + tileh;
 		}
 	}
-	
 	if ((redraw & REDRAWHIGHSCORE) == REDRAWHIGHSCORE) {
 		/* The top high score */
 		/* If flashhighscorestate is TRUE then no score is shown
 		   (it is blanked out with the background colour). */
-		dest.x = 0.15 * tilew; if (xres == 240 || xres == 480) dest.x = 4 * tilew;
-		dest.y = 0.9 * tileh;
 		if (flashhighscorestate) {
 			dest.w = 5 * digitw; dest.h = digith;
 			SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, YELLOW));
 		} else {
-			draw_digits(highscoretable[0], 4, dest.x, dest.y);
+			draw_digits(highscoretable[0], hiscoredigits, ARRAYSIZE(hiscoredigits));
 		}
 	}
 	
 	if ((redraw & REDRAWTIMER) == REDRAWTIMER) {
 		/* The time */
-		dest.x = 0.15 * tilew; if (xres == 240 || xres == 480) dest.x = 8 * tilew;
-		dest.y = 4.9 * tileh; if (xres == 240 || xres == 480) dest.y = 0.9 * tileh;
-		draw_digits(gametime, 3, dest.x, dest.y);
+		draw_digits(gametime, timedigits, ARRAYSIZE(timedigits));
 	}
 	
 	if ((redraw & REDRAWSCORE) == REDRAWSCORE) {
 		/* The score */
-		dest.x = 0.15 * tilew; if (xres == 240 || xres == 480) dest.x = 0.15 * tilew;
-		dest.y = 2.9 * tileh; if (xres == 240 || xres == 480) dest.y = 0.9 * tileh;
-		draw_digits(score, 4, dest.x, dest.y);
+		draw_digits(score, scoredigits, ARRAYSIZE(scoredigits));
 	}
 	
 	if ((redraw & REDRAWPREVIEW) == REDRAWPREVIEW) {
@@ -742,44 +768,34 @@ void draw_ascii(char *text, int xpos, int ypos) {
 	}
 }
 
+static SDL_Rect *get_digit(int value, int place)
+{
+	while (place) {
+		value /= 10;
+		place--;
+	}
+	return &digit_src[value % 10];
+}
+
 /***************************************************************************
  * Draw Digits                                                             *
  ***************************************************************************/
-/* This writes an integer value. If it is negative the minus sign will be
-   shown at the end of the number.
-   On entry: value = an integer value positive or negative
-             digitcount = number of digits to draw
-             xpos = x position to write the number
-             ypos = y position to write the number */
+/* This writes an integer value of not more than len digits.
+ * A negative value can be no more than len - 1 digits long */
 
-void draw_digits(int value, int digitcount, int xpos, int ypos) {
-	SDL_Rect src, dest;
-	int tempvalue = abs(value);
-	int count, count2, base;
-	
-	dest.x = xpos; dest.y = ypos;
-	dest.w = digitw; dest.h = digith;
-	src.y = 0;
-	src.w = digitw; src.h = digith;
-	
-	for (count = digitcount - 1; count >= 0; count--) {
-		base = count == 0 ? 1 : 10;
-		for (count2 = count; count2 > 1; count2--) base = base * 10;
-		
-		src.x = tempvalue / base * digitw;
-		if(SDL_BlitSurface(digits, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-		
-		tempvalue = tempvalue % base;
-		dest.x = dest.x + digitw;
-	}
-	
+static void draw_digits(int value, SDL_Rect *label, int len) {
 	if (value < 0) {
-		src.x = 10 * digitw;
-		if(SDL_BlitSurface(digits, &src, screen, &dest) < 0)
+		if(SDL_BlitSurface(digits, &digit_src[10], screen, &label[0]) < 0)
 			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
-	} else {
-		SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, YELLOW));
+		value = abs(value);
+		label++;
+		len--;
+	}
+
+	for (int i = 0; i < len; ++i) {
+		if(SDL_BlitSurface(digits, get_digit(value, len - 1 - i),
+				   screen, &label[i]) < 0)
+			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
 	}
 }
 

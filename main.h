@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 /*#define DEBUG */
 #define FALSE 0
 #define TRUE 1
+#define ARRAYSIZE(x) (sizeof(x) / sizeof(x)[0])
 #define VERSION "0.1.3"
 #define DATADIR "/opt/QtPalmtop/share/pipepanic/"
 #define DIGITS24BMP "digits24.bmp"
