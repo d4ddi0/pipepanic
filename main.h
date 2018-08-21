@@ -77,8 +77,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 #define FILLPIPESTIMEOUT 200
 #define FLASHHIGHSCORETIMEOUT 500
 
-#define HELPPAGES 6
-
 #define HELPPAGE0 "Instructions\n----------------\nConnect the green start pipe to the red end\npipe using the pipes from the green tile.\n\nThe more pipes you utilise the greater your\nscore.\n\nThe pipe network will be filled once the time\nexpires or you manually fill the network by\nclicking Fill or the green start pipe.\n\nThe game will end prematurely if a leaky\npipe is found when filling.\n\nClick High Score to view the high score's\npipe network."
 
 #define HELPPAGE1 "Scoring\n----------\n10 points for each pipe placed.\n\n-10 points for each pipe overwritten.\n\n5 points for each second remaining if you fill\nthe network early.\n\n-10 points for each unconnected pipe found\nwhen filling.\n\n50 points for each filled pipe."

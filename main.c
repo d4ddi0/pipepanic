@@ -70,7 +70,6 @@ int highscoreboard[5][BOARDH * BOARDW];
 int score = 0;
 int disablescoring = FALSE;
 int gametime = GAMETIME;
-Uint32 fps_ticks = 0;
 long int frames = 0;
 struct drawpipe drawpipearray[BOARDH * BOARDW + 1];
 int previewarray[PREVIEWARRAYSIZE];
@@ -87,6 +86,9 @@ int cleardeadpipesy = 0, cleardeadpipesx = 0;
 int fillpipespasscounter = FILLEDCOUNTERBASE;
 int flashhighscorestate = FALSE;
 int helppage = 0;
+static const char * const helppages[] = {HELPPAGE0, HELPPAGE1, HELPPAGE2,
+	     HELPPAGE3, HELPPAGE4, HELPPAGE5};
+
 /*						  ! "  #  $  %  &  ' ( ) *  + , - . / 0  1  2  3  4  5  6  7  8  9  : ; <  =  >  ?  @  A  B  C  D  E  F  G  H  I J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [ \ ] ^  _  ' a  b  c  d  e  f g  h  i j k  l m  n  o  p  q  r s  t u  v  w  x  y  z  { | } ~ */
 int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,13,13,13,13,5,5,11,11,11,12,15,15,14,13,14,13,12,15,14,6,12,15,12,16,14,16,13,16,14,14,14,14,15,19,13,13,14,8,6,8,11,10,6,13,12,13,12,13,8,13,11,6,6,12,6,17,11,13,12,12,8,12,9,11,12,18,13,12,11,8,4,8,11};
 
@@ -107,7 +109,7 @@ void cleardeadpipes(void);
 void fillpipes(void);
 void read_rc_file(void);
 void save_rc_file(void);
-void draw_ascii(char *text, int xpos, int ypos);
+void draw_ascii(const char *const text, int xpos, int ypos);
 void manage_help_input(int input);
 void manage_mouse_input(void);
 void setup_gameboard(void);
@@ -700,7 +702,7 @@ void draw_game(void) {
 			src.w = tilew; src.h = tileh;
 			blit(tiles, &src, &help_l_label);
 		}
-		if(helppage < HELPPAGES - 1) {
+		if(helppage < ARRAYSIZE(helppages) - 1) {
 			/* Right arrow */
 			src.x = 4 * tilew; src.y = 10 * tileh;
 			src.w = tilew; src.h = tileh;
@@ -713,19 +715,7 @@ void draw_game(void) {
 
 		x = xres - (BOARDW - 0.2) * tilew;
 		y = 0.2 * BOARDH; if (xres == 240 || xres == 480) y = 2.2 * tileh;
-		if(helppage == 0) {
-			draw_ascii(HELPPAGE0, x, y);
-		} else if(helppage == 1) {
-			draw_ascii(HELPPAGE1, x, y);
-		} else if(helppage == 2) {
-			draw_ascii(HELPPAGE2, x, y);
-		} else if(helppage == 3) {
-			draw_ascii(HELPPAGE3, x, y);
-		} else if(helppage == 4) {
-			draw_ascii(HELPPAGE4, x, y);
-		} else if(helppage == 5) {
-			draw_ascii(HELPPAGE5, x, y);
-		}
+		draw_ascii(helppages[helppage], x, y);
 	}
 	
 	if (redraw != REDRAWNONE) SDL_Flip(screen);
@@ -739,7 +729,7 @@ void draw_game(void) {
 /* This writes ASCII text. Embedded "\n" are translated into newlines.
    On entry: text = pointer to a (C) null terminated string */
 
-void draw_ascii(char *text, int xpos, int ypos) {
+void draw_ascii(const char *const text, int xpos, int ypos) {
 	SDL_Rect src, dest;
 	int count = 0, x = xpos, y = ypos;
 	
@@ -1134,7 +1124,7 @@ void manage_help_input(int input) {
 			}
 			break;
 		case SDLK_RIGHT:
-			if(helppage < HELPPAGES - 1) {
+			if(helppage < ARRAYSIZE(helppages) - 1) {
 				helppage = helppage + 1;
 				redraw = redraw | REDRAWHELP;
 				#ifdef DEBUG
