@@ -25,6 +25,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 #include <time.h>
 #include "main.h"
 
+/* function like macro to wrap error reporting in case of blit error
+ * in ifdef DEBUG, so we don't waste resources on it if noone will see it.
+ * */
+#ifdef DEBUG
+#define blit(ssurf, srect, drect) do { \
+	if (SDL_BlitSurface(ssurf, srect, screen, drect) < 0) \
+	    printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError()); \
+	} while (0)
+#else
+#define blit(ssurf, srect, drect) \
+	SDL_BlitSurface(ssurf, srect, screen, drect)
+#endif
+
 struct drawpipe {
 	int row;
 	int col;
@@ -539,12 +552,10 @@ void draw_preview(void)
 		src.y = 7 * tileh;
 		src.w = tilew;
 		src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &preview_rects[i]) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &preview_rects[i]);
 		get_pipe_src_xy(previewarray[2 - i], &x, &y, FALSE);
 		src.x = x; src.y = y;
-		if(SDL_BlitSurface(tiles, &src, screen, &preview_rects[i]) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &preview_rects[i]);
 	}
 }
 
@@ -567,8 +578,7 @@ void draw_game(void) {
 		src.w = tilew; src.h = tileh;
 		for (row = 0; row < BOARDH; row++) {
 			for (column = 0; column < BOARDW; column++) {
-				if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[row][column]) < 0)
-					printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+				blit(tiles, &src, &tile_rects[row][column]);
 			}
 		}
 
@@ -576,38 +586,32 @@ void draw_game(void) {
 		/* High Score. */
 		src.x = 0 * tilew; src.y = 8 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &hiscore_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &hiscore_label);
 
 		/* Score. */
 		src.x = 3 * tilew; src.y = 8 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &score_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &score_label);
 
 		/* Time (s). */
 		src.x = 0 * tilew; src.y = 9 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &time_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &time_label);
 
 		/* Fill. */
 		src.x = 3 * tilew; src.y = 10 * tileh;
 		src.w = tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &fill_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &fill_label);
 
 		/* Help. */
 		src.x = 3 * tilew; src.y = 9 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &help_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &help_label);
 
 		/* New Game. */
 		src.x = 0 * tilew; src.y = 10 * tileh;
 		src.w = 3 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &new_game_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &new_game_label);
 	}
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
@@ -620,8 +624,7 @@ void draw_game(void) {
 				if (boardarray[row][column] != NULLPIPEVAL) {
 					get_pipe_src_xy(boardarray[row][column], &x, &y, FALSE);
 					src.x = x; src.y = y;
-					if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[row][column]) < 0)
-						printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+					blit(tiles, &src, &tile_rects[row][column]);
 				}
 			}
 		}
@@ -660,8 +663,7 @@ void draw_game(void) {
 		while(drawpipearray[row].row != NULLPIPEVAL) {
 			src.x = 4 * tilew; src.y = 6 * tileh;
 			src.w = tilew; src.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]) < 0)
-				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+			blit(tiles, &src, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]);
 			row++;
 		}
 	}
@@ -675,8 +677,7 @@ void draw_game(void) {
 			get_pipe_src_xy(boardarray[drawpipearray[row].row][drawpipearray[row].col], &x, &y, drawpipearray[row].filled);
 			src.x = x; src.y = y;
 			src.w = tilew; src.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]) < 0)
-				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+			blit(tiles, &src, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]);
 			row++;
 		}
 	}
@@ -697,21 +698,18 @@ void draw_game(void) {
 			/* Left arrow */
 			src.x = 2 * tilew; src.y = 7 * tileh;
 			src.w = tilew; src.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &help_l_label) < 0)
-				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+			blit(tiles, &src, &help_l_label);
 		}
 		if(helppage < HELPPAGES - 1) {
 			/* Right arrow */
 			src.x = 4 * tilew; src.y = 10 * tileh;
 			src.w = tilew; src.h = tileh;
-			if(SDL_BlitSurface(tiles, &src, screen, &help_r_label) < 0)
-				printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+			blit(tiles, &src, &help_r_label);
 		}
 		/* Exit */
 		src.x = 3 * tilew; src.y = 7 * tileh;
 		src.w = 2 * tilew; src.h = tileh;
-		if(SDL_BlitSurface(tiles, &src, screen, &help_exit_label) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(tiles, &src, &help_exit_label);
 
 		x = xres - (BOARDW - 0.2) * tilew;
 		y = 0.2 * BOARDH; if (xres == 240 || xres == 480) y = 2.2 * tileh;
@@ -757,8 +755,7 @@ void draw_ascii(char *text, int xpos, int ypos) {
 		src.h = asciih;
 		dest.x = x; dest.y = y;
 		dest.w = src.w; dest.h = asciih;
-		if(SDL_BlitSurface(ascii, &src, screen, &dest) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(ascii, &src, &dest);
 		x = x + src.w;
 		count++;
 	}
@@ -781,17 +778,14 @@ static SDL_Rect *get_digit(int value, int place)
 
 static void draw_digits(int value, SDL_Rect *label, int len) {
 	if (value < 0) {
-		if(SDL_BlitSurface(digits, &digit_src[10], screen, &label[0]) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(digits, &digit_src[10], &label[0]);
 		value = abs(value);
 		label++;
 		len--;
 	}
 
 	for (int i = 0; i < len; ++i) {
-		if(SDL_BlitSurface(digits, get_digit(value, len - 1 - i),
-				   screen, &label[i]) < 0)
-			printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError());
+		blit(digits, get_digit(value, len - 1 - i), &label[i]);
 	}
 }
 
