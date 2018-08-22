@@ -1,5 +1,6 @@
 /* Pipepanic - a game.
 Copyright (C) 2006 TheGreenKnight <thegreenknight1500@hotmail.com>
+Copyright (C) 2018 Joshua Clayton <stillcompiling@gmail.com>
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -16,8 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. */
 
 /* Includes */
-#include <SDL/SDL_main.h>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,13 +29,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
  * in ifdef DEBUG, so we don't waste resources on it if noone will see it.
  * */
 #ifdef DEBUG
-#define blit(ssurf, srect, drect) do { \
-	if (SDL_BlitSurface(ssurf, srect, screen, drect) < 0) \
-	    printf("%s: BlitSurface error: %s\n", __func__, SDL_GetError()); \
+#define blit(stex, srect, drect) do { \
+	if (SDL_RenderCopy(rrr, stex, srect, drect) < 0) \
+	    printf("%s: SDL_RenderCopy  error: %s\n", __func__, SDL_GetError()); \
 	} while (0)
 #else
-#define blit(ssurf, srect, drect) \
-	SDL_BlitSurface(ssurf, srect, screen, drect)
+#define blit(stex, srect, drect) SDL_RenderCopy(rrr, stex, srect, drect)
 #endif
 
 struct drawpipe {
@@ -54,10 +53,11 @@ int digith = 48;
 int asciiw = 30;
 int asciih = 30;
 int sdl_fullscreen = FALSE;
-SDL_Surface *screen;
-SDL_Surface *digits;
-SDL_Surface *tiles;
-SDL_Surface *ascii;
+SDL_Window *win;
+SDL_Renderer *rrr;
+SDL_Texture *digits;
+SDL_Texture *tiles;
+SDL_Texture *ascii;
 SDL_Event event;
 char *current_dir;
 char *user_home_dir;
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
 				xres = 480; yres = 640;
 				tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 			} else if (!strcmp(argv[count], "-f")) {
-				sdl_fullscreen = SDL_FULLSCREEN;
+				sdl_fullscreen = SDL_WINDOW_FULLSCREEN;
 			} else {
 				printf("\n'%s' not recognised. Try '--help'.\n\n", argv[count]);
 				return 0;
@@ -199,8 +199,11 @@ int main(int argc, char *argv[]) {
 	#endif
 	
 	/* Set SDL video mode */
-	screen = SDL_SetVideoMode(xres, yres, 16, SDL_DOUBLEBUF | SDL_HWSURFACE | SDL_ANYFORMAT | sdl_fullscreen);
-	if(screen == NULL) {
+	win = SDL_CreateWindow("pipepanic plus!", SDL_WINDOWPOS_UNDEFINED,
+			       SDL_WINDOWPOS_UNDEFINED, xres, yres,
+			       sdl_fullscreen | SDL_WINDOW_OPENGL);
+	rrr = SDL_CreateRenderer(win, -1, 0);
+	if(win == NULL) {
 		printf("%s: Cannot initialise screen: %s\n", __func__, SDL_GetError());
 		exit(1);
 	}
@@ -304,10 +307,11 @@ int get_machine_id(void) {
    the display format for optimisation. Also RLE is enabled for the colorkey
    which makes probably the biggest difference in frame rate I have found yet.
    On exit: returns 1 if an error occured else 0. */
-int load_bitmap(SDL_Surface **surface, const char *fname, Uint32
+int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
 		cflag, Uint8 r, Uint8 g, Uint8 b)
 {
 	SDL_Surface *temp = SDL_LoadBMP(fname);
+	SDL_Surface *temp2;
 	char buf[128];
 	if (!temp) {
 		strncpy(buf, DATADIR, sizeof(buf));
@@ -319,17 +323,26 @@ int load_bitmap(SDL_Surface **surface, const char *fname, Uint32
 		}
 	}
 
-	if (cflag)
+	if (cflag) {
 		SDL_SetColorKey(temp, cflag, SDL_MapRGB(temp->format, r, g, b));
+		SDL_SetSurfaceRLE(temp, cflag);
+	}
 
-	*surface = SDL_DisplayFormat(temp);
-	if (!surface) {
-		printf("%s: SDL_DisplayFormat error: %s\n",
+	temp2 = SDL_ConvertSurfaceFormat(temp, SDL_GetWindowPixelFormat(win), 0);
+	SDL_FreeSurface(temp);
+	if (!temp2) {
+		printf("%s: SDL_ConvertSurfaceFormat error: %s\n",
 		       __func__, SDL_GetError());
 		return 1;
 	}
-	SDL_FreeSurface(temp);
 
+	*tex = SDL_CreateTextureFromSurface(rrr, temp2);
+	SDL_FreeSurface(temp2);
+	if (!*tex) {
+		printf("%s: SDL_CreateTextureFromSurface error: %s\n",
+		       __func__, SDL_GetError());
+		return 1;
+	}
 	return 0;
 }
 
@@ -349,11 +362,9 @@ int load_bitmaps(void) {
 	if (load_bitmap(&digits, digitsfile, 0, 0, 0, 0) != 0)
 		return 1;
 
-	if (load_bitmap(&tiles, tilesfile,
-			SDL_SRCCOLORKEY | SDL_RLEACCEL, MAGENTA) != 0)
+	if (load_bitmap(&tiles, tilesfile, SDL_TRUE, MAGENTA) != 0)
 		return 1;
-	if (load_bitmap(&ascii, asciifile,
-			SDL_SRCCOLORKEY | SDL_RLEACCEL, WHITE) != 0)
+	if (load_bitmap(&ascii, asciifile, SDL_TRUE, WHITE) != 0)
 		return 1;
 
 	return 0;
@@ -557,8 +568,8 @@ void draw_game(void) {
 
 	if ((redraw & REDRAWBOARD) == REDRAWBOARD) {
 		/* Paint the whole screen yellow. */
-		dest.x = dest.y = 0; dest.w = screen->w; dest.h = screen->h;
-		SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, YELLOW));
+		SDL_SetRenderDrawColor(rrr, YELLOW, 255);
+		SDL_RenderClear(rrr);
 
 		/* Draw all the game board background tiles. */
 		src.x = 4 * tilew; src.y = 6 * tileh;
@@ -621,7 +632,8 @@ void draw_game(void) {
 		   (it is blanked out with the background colour). */
 		if (flashhighscorestate) {
 			dest.w = 5 * digitw; dest.h = digith;
-			SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, YELLOW));
+			SDL_SetRenderDrawColor(rrr, YELLOW, 255);
+			SDL_RenderDrawRect(rrr, &dest);
 		} else {
 			draw_digits(highscoretable[0], hiscoredigits, ARRAYSIZE(hiscoredigits));
 		}
@@ -674,9 +686,11 @@ void draw_game(void) {
 		dest.y = gameboard_rect.y - 1;
 		dest.w = gameboard_rect.w + 2;
 		dest.h = gameboard_rect.h + 2;
-		SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
+		SDL_SetRenderDrawColor(rrr, BLACK, 255);
+		SDL_RenderDrawRect(rrr, &dest);
 		/* Draw a white box to cover the game board */
-		SDL_FillRect(screen, &gameboard_rect, SDL_MapRGB(screen->format, WHITE));
+		SDL_SetRenderDrawColor(rrr, WHITE, 255);
+		SDL_RenderFillRect(rrr, &gameboard_rect);
 		/* Draw the Exit text and the navigation buttons */
 		if(helppage > 0) {
 			/* Left arrow */
@@ -699,9 +713,10 @@ void draw_game(void) {
 		y = 0.2 * BOARDH; if (xres == 240 || xres == 480) y = 2.2 * tileh;
 		draw_ascii(helppages[helppage], x, y);
 	}
-	
-	if (redraw != REDRAWNONE) SDL_Flip(screen);
-	
+
+	if (redraw != REDRAWNONE)
+		SDL_RenderPresent(rrr);
+
 	redraw = REDRAWNONE;
 }
 

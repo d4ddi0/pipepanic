@@ -4,10 +4,14 @@ TARGET=pipepanic
 
 # Settings for x86.
 CC=gcc
-CFLAGS=-O2 -Wall -pedantic `sdl-config --cflags`
+CFLAGS=-O2 -Wall -pedantic $(shell sdl2-config --cflags)
 LINK=gcc
 LDFLAGS=
-LIBS=`sdl-config --libs`
+LIBS=$(shell sdl2-config --libs)
+ifneq (,$(DEBUG))
+	CFLAGS += -g -DDEBUG
+endif
+
 
 all:
 	$(CC) $(CFLAGS) -c $(SOURCES)
