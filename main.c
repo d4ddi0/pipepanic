@@ -94,7 +94,6 @@ int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,
 
 /* Function prototypes */
 int get_machine_id(void);
-void clear_screen(void);
 int load_bitmaps(void);
 void draw_game(void);
 static void draw_digits(int value, SDL_Rect *label, int len);
@@ -296,18 +295,6 @@ int get_machine_id(void) {
 		fclose (file);
 	}
 	return returnval;
-}
-
-/***************************************************************************
- * Clear Screen                                                            *
- ***************************************************************************/
-/* This simply sets the screen to black. */
-
-void clear_screen(void) {
-	SDL_Rect dest;
-
-	dest.x = dest.y = 0; dest.w = screen->w; dest.h = screen->h;
-	SDL_FillRect(screen, &dest, SDL_MapRGB(screen->format, BLACK));
 }
 
 /***************************************************************************
