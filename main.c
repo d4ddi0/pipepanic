@@ -902,6 +902,30 @@ static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled)
 	return;
 }
 
+static void manage_window_event(const SDL_Event *event)
+{
+	switch(event->window.event) {
+	case SDL_WINDOWEVENT_SHOWN:
+	case SDL_WINDOWEVENT_EXPOSED:
+	case SDL_WINDOWEVENT_RESTORED:
+	case SDL_WINDOWEVENT_MOVED:
+		SDL_RenderPresent(rrr);
+		break;
+	case SDL_WINDOWEVENT_HIDDEN:
+	case SDL_WINDOWEVENT_MINIMIZED:
+		break;
+	case SDL_WINDOWEVENT_MAXIMIZED:
+	case SDL_WINDOWEVENT_RESIZED:
+	case SDL_WINDOWEVENT_SIZE_CHANGED:
+		redraw = REDRAWALL;
+		draw_game();
+		SDL_RenderPresent(rrr);
+		break;
+	default:
+		break;
+	}
+}
+
 /***************************************************************************
  * Manage User Input                                                       *
  ***************************************************************************/
@@ -930,6 +954,8 @@ void manage_user_input(void) {
 			case SDL_MOUSEBUTTONDOWN:
 				manage_mouse_input();
 				break;
+			case SDL_WINDOWEVENT:
+				manage_window_event(&event);
 			default:
 				break;
 		}
