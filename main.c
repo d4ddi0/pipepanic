@@ -102,7 +102,7 @@ void manage_user_input(void);
 int getnextpipepiece(void);
 void fillpipearray(void);
 int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
-void get_pipe_src_xy(int pipeid, int *x, int *y, int drawpipefilled);
+static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled);
 void createdeadpipesarray(void);
 void cleardeadpipes(void);
 void fillpipes(void);
@@ -534,7 +534,6 @@ void setup_gameboard(void)
 void draw_preview(void)
 {
 	SDL_Rect src;
-	int x = 0, y = 0;
 
 	for (int i = 0; i < ARRAYSIZE(preview_rects); ++i) {
 		src.x = (i < 2)? tilew : 0;
@@ -542,8 +541,7 @@ void draw_preview(void)
 		src.w = tilew;
 		src.h = tileh;
 		blit(tiles, &src, &preview_rects[i]);
-		get_pipe_src_xy(previewarray[2 - i], &x, &y, FALSE);
-		src.x = x; src.y = y;
+		get_pipe_src(previewarray[2 - i], &src, FALSE);
 		blit(tiles, &src, &preview_rects[i]);
 	}
 }
@@ -611,8 +609,7 @@ void draw_game(void) {
 		for (row = 0; row < BOARDH; row++) {
 			for (column = 0; column < BOARDW; column++) {
 				if (boardarray[row][column] != NULLPIPEVAL) {
-					get_pipe_src_xy(boardarray[row][column], &x, &y, FALSE);
-					src.x = x; src.y = y;
+					get_pipe_src(boardarray[row][column], &src, FALSE);
 					blit(tiles, &src, &tile_rects[row][column]);
 				}
 			}
@@ -663,9 +660,7 @@ void draw_game(void) {
 		   draw pipes array */
 		row = 0;
 		while(drawpipearray[row].row != NULLPIPEVAL) {
-			get_pipe_src_xy(boardarray[drawpipearray[row].row][drawpipearray[row].col], &x, &y, drawpipearray[row].filled);
-			src.x = x; src.y = y;
-			src.w = tilew; src.h = tileh;
+			get_pipe_src(boardarray[drawpipearray[row].row][drawpipearray[row].col], &src, drawpipearray[row].filled);
 			blit(tiles, &src, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]);
 			row++;
 		}
@@ -873,21 +868,24 @@ int fillpipearraypieces(int pipepiece, int frequency, int nextpointer) {
  * Get Pipe XY                                                             *
  ***************************************************************************/
 /* This translates a number identifying a pipe into x and y coordinates
-   into the tiles surface.
-   On entry: pipeid = 0 to 16, the same order the pipes are within the bmp
-             *x
-             *y 
-             drawpipefilled = FALSE for empty or TRUE for filled */
- 
-void get_pipe_src_xy(int pipeid, int *x, int *y, int drawpipefilled) {
+   into the tiles texture. */
+
+static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled)
+{
 	if (pipeid > 16) {
 		printf("%s: Invalid pipe: %i\n", __func__, pipeid);
-	} else {
-		if (drawpipefilled) pipeid = pipeid + 17;
-		*x = (pipeid % 5) * tilew;
-		*y = (pipeid / 5) * tileh;
+		pipeid = 0; /* draw the clearly wrong starting pipe */
 	}
-} 
+
+	if (filled)
+		pipeid += 17;
+
+	rect->x = (pipeid % 5) * tilew;
+	rect->y = (pipeid / 5) * tileh;
+	rect->w = tilew;
+	rect->h = tileh;
+	return;
+}
 
 /***************************************************************************
  * Manage User Input                                                       *
