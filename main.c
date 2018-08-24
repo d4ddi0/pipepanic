@@ -58,6 +58,7 @@ SDL_Renderer *rrr;
 SDL_Texture *digits;
 SDL_Texture *tiles;
 SDL_Texture *ascii;
+SDL_Rect mouse_scale;
 SDL_Event event;
 char *current_dir;
 char *user_home_dir;
@@ -178,7 +179,7 @@ int main(int argc, char *argv[]) {
 				xres = 480; yres = 640;
 				tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 			} else if (!strcmp(argv[count], "-f")) {
-				sdl_fullscreen = SDL_WINDOW_FULLSCREEN;
+				sdl_fullscreen = SDL_WINDOW_FULLSCREEN_DESKTOP;
 			} else {
 				printf("\n'%s' not recognised. Try '--help'.\n\n", argv[count]);
 				return 0;
@@ -203,6 +204,8 @@ int main(int argc, char *argv[]) {
 			       SDL_WINDOWPOS_UNDEFINED, xres, yres,
 			       sdl_fullscreen | SDL_WINDOW_OPENGL);
 	rrr = SDL_CreateRenderer(win, -1, 0);
+	SDL_RenderSetIntegerScale(rrr, SDL_TRUE);
+	SDL_RenderSetLogicalSize(rrr, xres, yres);
 	if(win == NULL) {
 		printf("%s: Cannot initialise screen: %s\n", __func__, SDL_GetError());
 		exit(1);
@@ -406,6 +409,18 @@ void setup_img_src_rects(void)
 	setup_digit_src_rects();
 }
 
+static void setup_mouse()
+{
+	float scaleX, scaleY;
+
+	SDL_RenderGetScale(rrr, &scaleX, &scaleY);
+	SDL_RenderGetViewport(rrr, &mouse_scale);
+	mouse_scale.w = (short)scaleX;
+	mouse_scale.x *= mouse_scale.w;
+	mouse_scale.h = (short)scaleY;
+	mouse_scale.y *= mouse_scale.h;
+}
+
 void setup_gameboard(void)
 {
 	int row, column, x, y;
@@ -539,7 +554,7 @@ void setup_gameboard(void)
 		help_exit_label.w = 2 * tilew;
 		help_exit_label.h = tileh;
 	}
-
+	setup_mouse();
 }
 
 void draw_preview(void)
@@ -974,8 +989,15 @@ void manage_mouse_input(void)
 	int column = 0, row = 0;
 
 	mbut = SDL_GetMouseState(&mx, &my);
+	mx = (mx - mouse_scale.x) / mouse_scale.w;
+	my = (my - mouse_scale.y) / mouse_scale.h;
+
+	if (mx < 0 || mx >= xres || my < 0 || my >= yres)
+		return;
+
 	if (mbut != SDL_BUTTON_LEFT)
 		return;
+
 
 	#ifdef DEBUG
 	printf("mbut=%i mx=%i my=%i\n", mbut, mx, my);
