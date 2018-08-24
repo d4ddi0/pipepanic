@@ -199,8 +199,9 @@ int main(int argc, char *argv[]) {
 	/* Set SDL video mode */
 	win = SDL_CreateWindow("pipepanic plus!", SDL_WINDOWPOS_UNDEFINED,
 			       SDL_WINDOWPOS_UNDEFINED, xres, yres,
-			       sdl_fullscreen | SDL_WINDOW_OPENGL);
-	rrr = SDL_CreateRenderer(win, -1, 0);
+			       sdl_fullscreen);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+	rrr = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
 	SDL_RenderSetIntegerScale(rrr, SDL_TRUE);
 	SDL_RenderSetLogicalSize(rrr, xres, yres);
 	if(win == NULL) {
