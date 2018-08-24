@@ -60,7 +60,6 @@ SDL_Texture *tiles;
 SDL_Texture *ascii;
 SDL_Rect mouse_scale;
 SDL_Event event;
-char *current_dir;
 char *user_home_dir;
 int quit = 0;
 int game_mode = GAMEON;
@@ -136,11 +135,9 @@ int main(int argc, char *argv[]) {
 	
 	srand((unsigned) time(NULL));	/* Seed C's random number generator */
 	
-	current_dir = getenv("PWD");
 	user_home_dir = getenv("HOME");
 	
 	#ifdef DEBUG
-	printf("PWD=%s\n", current_dir);
 	printf("HOME=%s\n", user_home_dir);
 	#endif
 	
