@@ -94,7 +94,7 @@ static const int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10
 
 /* Function prototypes */
 int get_machine_id(void);
-int load_bitmaps(void);
+static int load_bitmaps(SDL_bool small);
 void draw_game(void);
 static void draw_digits(int value, SDL_Rect *label, int len);
 void initialise_new_game(void);
@@ -111,6 +111,7 @@ void save_rc_file(void);
 void draw_ascii(const char *const text, int xpos, int ypos);
 void manage_help_input(int input);
 void manage_mouse_input(void);
+static void initialize_drawables(int w, int h);
 void setup_gameboard(void);
 void setup_img_src_rects(void);
 
@@ -165,16 +166,12 @@ int main(int argc, char *argv[]) {
 				return 0;
 			} else if (!strcmp(argv[count], "-240x320")) {
 				xres = 240; yres = 320;
-				tilew = tileh = digith = 24; digitw = 15; asciiw = asciih = 15;
 			} else if (!strcmp(argv[count], "-320x240")) {
 				xres = 320; yres = 240;
-				tilew = tileh = digith = 24; digitw = 15; asciiw = asciih = 15;
 			} else if (!strcmp(argv[count], "-640x480")) {
 				xres = 640; yres = 480;
-				tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 			} else if (!strcmp(argv[count], "-480x640")) {
 				xres = 480; yres = 640;
-				tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 			} else if (!strcmp(argv[count], "-f")) {
 				sdl_fullscreen = SDL_WINDOW_FULLSCREEN_DESKTOP;
 			} else {
@@ -197,27 +194,20 @@ int main(int argc, char *argv[]) {
 	#endif
 	
 	/* Set SDL video mode */
+
 	win = SDL_CreateWindow("pipepanic plus!", SDL_WINDOWPOS_UNDEFINED,
 			       SDL_WINDOWPOS_UNDEFINED, xres, yres,
-			       sdl_fullscreen);
+			       sdl_fullscreen | SDL_WINDOW_RESIZABLE);
+	SDL_SetWindowMinimumSize(win, 320, 240);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 	rrr = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
-	SDL_RenderSetIntegerScale(rrr, SDL_TRUE);
-	SDL_RenderSetLogicalSize(rrr, xres, yres);
 	if(win == NULL) {
 		printf("%s: Cannot initialise screen: %s\n", __func__, SDL_GetError());
 		exit(1);
 	}
-	
-	#ifdef DEBUG	
-	printf ("Loading bitmaps\n");
-	#endif
-	
-	if (load_bitmaps()) exit(1);
-	setup_img_src_rects();
-	
+
+	initialize_drawables(xres, yres);
 	/* Initialise new game */
-	setup_gameboard();
 	initialise_new_game();
 	Uint32 timeout = 0;
 	/* Main game loop */
@@ -266,6 +256,46 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+static void initialize_drawables(int w, int h)
+{
+	SDL_bool small;
+
+        if (h >= w && h >= 640 && w >= 480) {
+		/* Large portrait oriented */
+		yres = 640;
+		xres = 480;
+		small = SDL_FALSE;
+	} else if (w > h && w >= 640 && h >= 480) {
+		/* Large landscape oriented */
+		xres = 640;
+		yres = 480;
+		small = SDL_FALSE;
+	} else if (h >= w && h >= 320 && w >= 240) {
+		/* Small portrait oriented */
+		yres = 320;
+		xres = 240;
+		small = SDL_TRUE;
+	} else if (w > h && w >= 320 && h >= 240) {
+		/* Small landscape oriented */
+		xres = 320;
+		yres = 240;
+		small = SDL_TRUE;
+	} else {
+		/* invalid. do not resize yet */
+		return;
+	}
+
+	SDL_RenderSetIntegerScale(rrr, SDL_TRUE);
+	SDL_RenderSetLogicalSize(rrr, xres, yres);
+	if (load_bitmaps(small))
+		exit(1);
+	setup_img_src_rects();
+	setup_gameboard();
+	redraw = REDRAWALL;
+	draw_game();
+	SDL_RenderPresent(rrr);
+}
+
 /***************************************************************************
  * Get Machine ID                                                          *
  ***************************************************************************/
@@ -284,13 +314,10 @@ int get_machine_id(void) {
 		#endif
 		if (!strncmp(buffer, "SL-5", 4)) {
 			xres = 240; yres = 320;
-			tilew = tileh = digith = 24; digitw = 15; asciiw = asciih = 15;
 		} else if (!strncmp(buffer, "SL-C", 4)) { 
 			xres = 640; yres = 480;
-			tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 		} else if (!strncmp(buffer, "SL-6", 4)) { 
 			xres = 480; yres = 640;
-			tilew = tileh = digith = 48; digitw = 30; asciiw = asciih = 30;
 		} else {
 			printf("product=%s\n", buffer);
 			printf("Unknown Zaurus model! Please email me the product shown above.\n");
@@ -308,9 +335,13 @@ int get_machine_id(void) {
    the display format for optimisation. Also RLE is enabled for the colorkey
    which makes probably the biggest difference in frame rate I have found yet.
    On exit: returns 1 if an error occured else 0. */
-int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
+static int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
 		cflag, Uint8 r, Uint8 g, Uint8 b)
 {
+
+	if(tex)
+		SDL_DestroyTexture(*tex);
+
 	SDL_Surface *temp = SDL_LoadBMP(fname);
 	SDL_Surface *temp2;
 	char buf[128];
@@ -347,14 +378,24 @@ int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
 	return 0;
 }
 
-int load_bitmaps(void) {
+static int load_bitmaps(SDL_bool small) {
 	const char *digitsfile, *tilesfile, *asciifile;
+	static SDL_bool is_small = SDL_FALSE;
 
-	if (xres <= 320) {
+	if (small == is_small && digits)
+		return 0;
+
+	is_small = small;
+
+	if (small) {
+		tilew = tileh = digith = 24;
+		digitw = asciiw = asciih = 15;
 		digitsfile = DIGITS24BMP;
 		tilesfile = TILES24BMP;
 		asciifile = ASCII15BMP;
 	} else {
+		tilew = tileh = digith = 48;
+		digitw = asciiw = asciih = 30;
 		digitsfile = DIGITS48BMP;
 		tilesfile = TILES48BMP;
 		asciifile = ASCII30BMP;
@@ -926,13 +967,11 @@ static void manage_window_event(const SDL_Event *event)
 		break;
 	case SDL_WINDOWEVENT_HIDDEN:
 	case SDL_WINDOWEVENT_MINIMIZED:
-		break;
 	case SDL_WINDOWEVENT_MAXIMIZED:
 	case SDL_WINDOWEVENT_RESIZED:
+		break;
 	case SDL_WINDOWEVENT_SIZE_CHANGED:
-		redraw = REDRAWALL;
-		draw_game();
-		SDL_RenderPresent(rrr);
+		initialize_drawables(event->window.data1, event->window.data2);
 		break;
 	default:
 		break;
