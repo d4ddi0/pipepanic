@@ -44,48 +44,47 @@ struct drawpipe {
 };
 
 /* Variable declarations */
-int xres = 640;
-int yres = 480;
-int tilew = 48;
-int tileh = 48;
-int digitw = 30;
-int digith = 48;
-int asciiw = 30;
-int asciih = 30;
-int sdl_fullscreen = FALSE;
-SDL_Window *win;
-SDL_Renderer *rrr;
-SDL_Texture *digits;
-SDL_Texture *tiles;
-SDL_Texture *ascii;
-SDL_Rect mouse_scale;
-SDL_Event event;
-char *user_home_dir;
-int quit = 0;
-int game_mode = GAMEON;
-int previous_game_mode = 0;
-int redraw = REDRAWALL;
-int highscoretable[5] = {0, 0, 0, 0, 0};
-int highscoreboard[5][BOARDH * BOARDW];
-int score = 0;
-int disablescoring = FALSE;
-int gametime = GAMETIME;
-long int frames = 0;
-struct drawpipe drawpipearray[BOARDH * BOARDW + 1];
-int previewarray[PREVIEWARRAYSIZE];
-int pipearray[PIPEARRAYSIZE];
-int boardarray[BOARDH][BOARDW];
-SDL_Rect tile_rects[BOARDH][BOARDW];
-int deadpipesarray[BOARDH][BOARDW];
-SDL_Rect digit_src[11];
-SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
+static int xres = 640;
+static int yres = 480;
+static int tilew = 48;
+static int tileh = 48;
+static int digitw = 30;
+static int digith = 48;
+static int asciiw = 30;
+static int asciih = 30;
+static int sdl_fullscreen = FALSE;
+static SDL_Window *win;
+static SDL_Renderer *rrr;
+static SDL_Texture *digits;
+static SDL_Texture *tiles;
+static SDL_Texture *ascii;
+static SDL_Rect mouse_scale;
+static SDL_Event event;
+static char *user_home_dir;
+static int quit = 0;
+static int game_mode = GAMEON;
+static int previous_game_mode = 0;
+static int redraw = REDRAWALL;
+static int highscoretable[5] = {0, 0, 0, 0, 0};
+static int highscoreboard[5][BOARDH * BOARDW];
+static int score = 0;
+static int disablescoring = FALSE;
+static int gametime = GAMETIME;
+static struct drawpipe drawpipearray[BOARDH * BOARDW + 1];
+static int previewarray[PREVIEWARRAYSIZE];
+static int pipearray[PIPEARRAYSIZE];
+static int boardarray[BOARDH][BOARDW];
+static SDL_Rect tile_rects[BOARDH][BOARDW];
+static int deadpipesarray[BOARDH][BOARDW];
+static SDL_Rect digit_src[11];
+static SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
 	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4],
 	preview_rects[PREVIEWARRAYSIZE];
-int cleardeadpipesy = 0, cleardeadpipesx = 0;
-int fillpipespasscounter = FILLEDCOUNTERBASE;
-int flashhighscorestate = FALSE;
-int helppage = 0;
+static int cleardeadpipesy = 0, cleardeadpipesx = 0;
+static int fillpipespasscounter = FILLEDCOUNTERBASE;
+static int flashhighscorestate = FALSE;
+static int helppage = 0;
 static const char * const helppages[] = {HELPPAGE0, HELPPAGE1, HELPPAGE2,
 	     HELPPAGE3, HELPPAGE4, HELPPAGE5};
 
@@ -93,27 +92,27 @@ static const char * const helppages[] = {HELPPAGE0, HELPPAGE1, HELPPAGE2,
 static const int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,13,13,13,13,5,5,11,11,11,12,15,15,14,13,14,13,12,15,14,6,12,15,12,16,14,16,13,16,14,14,14,14,15,19,13,13,14,8,6,8,11,10,6,13,12,13,12,13,8,13,11,6,6,12,6,17,11,13,12,12,8,12,9,11,12,18,13,12,11,8,4,8,11};
 
 /* Function prototypes */
-int get_machine_id(void);
+static int get_machine_id(void);
 static int load_bitmaps(SDL_bool small);
-void draw_game(void);
+static void draw_game(void);
 static void draw_digits(int value, SDL_Rect *label, int len);
-void initialise_new_game(void);
-void manage_user_input(void);
-int getnextpipepiece(void);
-void fillpipearray(void);
-int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
+static void initialise_new_game(void);
+static void manage_user_input(void);
+static int getnextpipepiece(void);
+static void fillpipearray(void);
+static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
 static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled);
-void createdeadpipesarray(void);
-void cleardeadpipes(void);
-void fillpipes(void);
-void read_rc_file(void);
-void save_rc_file(void);
-void draw_ascii(const char *const text, int xpos, int ypos);
-void manage_help_input(int input);
-void manage_mouse_input(void);
+static void createdeadpipesarray(void);
+static void cleardeadpipes(void);
+static void fillpipes(void);
+static void read_rc_file(void);
+static void save_rc_file(void);
+static void draw_ascii(const char *const text, int xpos, int ypos);
+static void manage_help_input(int input);
+static void manage_mouse_input(void);
 static void initialize_drawables(int w, int h);
-void setup_gameboard(void);
-void setup_img_src_rects(void);
+static void setup_gameboard(void);
+static void setup_img_src_rects(void);
 
 
 /***************************************************************************
@@ -123,7 +122,8 @@ void setup_img_src_rects(void);
 #ifdef __cplusplus
 extern "C"
 #endif
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	int count, count2;
 	
 	/* Initialise the highscoreboard array because there may not yet
@@ -303,7 +303,8 @@ static void initialize_drawables(int w, int h)
    Zaurus and not the PC and then sets the screen resolution accordingly.
    On exit: returns 1 if file found but product unknown else 0. */
    
-int get_machine_id(void) {  
+static int get_machine_id(void)
+{
 	char buffer[256];
 	int returnval = 0;
 	FILE *file = fopen( "/proc/deviceinfo/product", "r" );
@@ -378,7 +379,8 @@ static int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
 	return 0;
 }
 
-static int load_bitmaps(SDL_bool small) {
+static int load_bitmaps(SDL_bool small)
+{
 	const char *digitsfile, *tilesfile, *asciifile;
 	static SDL_bool is_small = SDL_FALSE;
 
@@ -412,7 +414,8 @@ static int load_bitmaps(SDL_bool small) {
 	return 0;
 }
 
-void setup_digits(SDL_Rect *label, int len, int xpos, int ypos) {
+static void setup_digits(SDL_Rect *label, int len, int xpos, int ypos)
+{
 	for (int i = 0; i <  len; ++i) {
 		label[i].x = xpos + (digitw * i);
 		label[i].y = ypos;
@@ -421,7 +424,7 @@ void setup_digits(SDL_Rect *label, int len, int xpos, int ypos) {
 	}
 }
 
-void setup_preview_rects(void)
+static void setup_preview_rects(void)
 {
 	int x = (xres == 240 || xres == 480)? 0.09 * tilew : 0.09 * tilew;
 	int y = (xres == 240 || xres == 480)? 12.18 * tileh : 6 * tileh;
@@ -434,7 +437,7 @@ void setup_preview_rects(void)
 	}
 }
 
-void setup_digit_src_rects(void) {
+static void setup_digit_src_rects(void) {
 	for (int i = 0; i < 11; ++i) {
 		digit_src[i].x= i * digitw;
 		digit_src[i].y= 0;
@@ -443,7 +446,7 @@ void setup_digit_src_rects(void) {
 	}
 }
 
-void setup_img_src_rects(void)
+static void setup_img_src_rects(void)
 {
 	setup_digit_src_rects();
 }
@@ -460,7 +463,7 @@ static void setup_mouse()
 	mouse_scale.y *= mouse_scale.h;
 }
 
-void setup_gameboard(void)
+static void setup_gameboard(void)
 {
 	int row, column, x, y;
 
@@ -596,7 +599,7 @@ void setup_gameboard(void)
 	setup_mouse();
 }
 
-void draw_preview(void)
+static void draw_preview(void)
 {
 	SDL_Rect src;
 
@@ -616,7 +619,8 @@ void draw_preview(void)
  ***************************************************************************/
 /* This draws the game. Either it draws all of it or just parts of it. */
 
-void draw_game(void) {
+static void draw_game(void)
+{
 	SDL_Rect src, dest;
 	int row, column, x, y;
 
@@ -780,7 +784,8 @@ void draw_game(void) {
 /* This writes ASCII text. Embedded "\n" are translated into newlines.
    On entry: text = pointer to a (C) null terminated string */
 
-void draw_ascii(const char *const text, int xpos, int ypos) {
+static void draw_ascii(const char *const text, int xpos, int ypos)
+{
 	SDL_Rect src, dest;
 	int count = 0, x = xpos, y = ypos;
 	
@@ -835,7 +840,8 @@ static void draw_digits(int value, SDL_Rect *label, int len) {
  ***************************************************************************/
 /* This sets up the variables necessary to start the game afresh. */
 
-void initialise_new_game(void) {
+static void initialise_new_game(void)
+{
 	int rowloop, colloop, count;
 	
 	game_mode = GAMEON;
@@ -870,7 +876,8 @@ void initialise_new_game(void) {
 /* Get next piece from the pipe array, or if at end
    of array refill it and get piece from start. */
 
-int getnextpipepiece(void) {
+static int getnextpipepiece(void)
+{
 	static int pipearraypointer = PIPEARRAYSIZE;
 
 	pipearraypointer++;
@@ -887,7 +894,8 @@ int getnextpipepiece(void) {
 /* This fills the pipe array with a set frequency of pipe pieces. The array
    is then shuffled. */
    
-void fillpipearray(void) {
+static void fillpipearray(void)
+{
 	int nextpointer = 0, count, temp, swap;
 	
 	/* Fill pipe array with our recommended frequency */
@@ -923,7 +931,8 @@ void fillpipearray(void) {
  ***************************************************************************/
 /* This is called by Fill Pipe Array only. */
 
-int fillpipearraypieces(int pipepiece, int frequency, int nextpointer) {
+static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer)
+{
 	while (frequency > 0) {
 		pipearray[nextpointer] = pipepiece;
 		nextpointer++;
@@ -983,7 +992,8 @@ static void manage_window_event(const SDL_Event *event)
  ***************************************************************************/
 /* This manages all user input. */
 
-void manage_user_input(void) {
+static void manage_user_input(void)
+{
 	while(SDL_PollEvent(&event)) {
 		switch(event.type) {
 		case SDL_KEYDOWN:
@@ -1014,13 +1024,13 @@ void manage_user_input(void) {
 	}
 }
 
-int mouse_event_in_rect(int mx, int my, SDL_Rect *rect)
+static int mouse_event_in_rect(int mx, int my, SDL_Rect *rect)
 {
 	return (mx >= rect->x && mx < rect->x + rect->w &&
 		my >= rect->y && my < rect->y + rect->h);
 }
 
-void manage_mouse_input(void)
+static void manage_mouse_input(void)
 {
 	int mbut, mx, my, count;
 	int column = 0, row = 0;
@@ -1149,7 +1159,8 @@ void manage_mouse_input(void)
  ***************************************************************************/
 /* This manages all user input relating to Help. */
 
-void manage_help_input(int input) {
+static void manage_help_input(int input)
+{
 	int rowloop, colloop, count = 0, leakypipefound = FALSE;
 	int nomorepipes, passcounter = FILLEDCOUNTERBASE, filled = TRUE, endpipefound = FALSE;
 	
@@ -1237,7 +1248,8 @@ void manage_help_input(int input) {
    so are dead pipes (those with no connection to the network). Enable DEBUG
    and look at the array dump in the console for a better understanding. */
 
-void createdeadpipesarray(void) {
+static void createdeadpipesarray(void)
+{
 	int count = 0, rowloop = 0, colloop = 0;
 	int pointexists = FALSE, pointsconverge = FALSE;
 	int leakcount = 0, deadcount = 0, freepointer = 0;
@@ -1502,7 +1514,8 @@ void createdeadpipesarray(void) {
 /* This clears one dead pipe at a time from the board array and the screen
    and is designed to be called from a timer so that it appears animated. */
 
-void cleardeadpipes(void) {
+static void cleardeadpipes(void)
+{
 	int deadpipefound = FALSE, nomorepipes = FALSE;
 
 	do {
@@ -1536,7 +1549,8 @@ void cleardeadpipes(void) {
  ***************************************************************************/
 /* This fills one or several pipes at a time. */
    
-void fillpipes(void) {
+static void fillpipes(void)
+{
 	int rowloop, colloop, count = 0;
 	int leakypipefound, nomorepipes;
 	
@@ -1596,7 +1610,8 @@ void fillpipes(void) {
  * Read Resource File                                                      *
  ***************************************************************************/
 
-void read_rc_file(void) {
+static void read_rc_file(void)
+{
 	char buffer[256];
 	FILE* file;
 	int result, value, count;
@@ -1671,7 +1686,8 @@ void read_rc_file(void) {
  * Save Resource File                                                      *
  ***************************************************************************/
 
-void save_rc_file(void) {
+static void save_rc_file(void)
+{
 	char buffer[256];
 	FILE* file;
 	int count;
