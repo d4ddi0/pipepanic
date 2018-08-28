@@ -125,7 +125,7 @@ extern "C"
 int main(int argc, char *argv[])
 {
 	int count, count2;
-	
+
 	/* Initialise the highscoreboard array because there may not yet
 	   be a saved highscore[board]/rc file */
 	for (count = 0; count < 5; count++) {
@@ -133,22 +133,22 @@ int main(int argc, char *argv[])
 			highscoreboard[count][count2] = NULLPIPEVAL;
 		}
 	}
-	
+
 	srand((unsigned) time(NULL));	/* Seed C's random number generator */
-	
+
 	user_home_dir = getenv("HOME");
-	
+
 	#ifdef DEBUG
 	printf("HOME=%s\n", user_home_dir);
 	#endif
-	
+
 	if (get_machine_id()) return 1;	/* This sets up the screen and tile sizes. */
-	
+
 	#ifdef DEBUG
 	printf("Reading resource file -> ");
 	#endif
 	read_rc_file();	/* This gets the saved highscore[s] */
-	
+
 	/* Process any command line arguments. These will override any found in the resource file. */
 	if (argc > 1) {
 		int count;
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 				printf("\n'%s' not recognised. Try '--help'.\n\n", argv[count]);
 				return 0;
 			}
-		} 
+		}
 	}
 
 	/* Initialise SDL */
@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 	#ifdef DEBUG
 	printf("Setting video mode %ix%i\n", xres, yres);
 	#endif
-	
+
 	/* Set SDL video mode */
 
 	win = SDL_CreateWindow("pipepanic plus!", SDL_WINDOWPOS_UNDEFINED,
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	
+
 	/* Shutdown all subsystems */
 	SDL_Quit();
 	return 0;
@@ -302,22 +302,22 @@ static void initialize_drawables(int w, int h)
 /* This looks for the file /proc/deviceinfo/product which exists on the
    Zaurus and not the PC and then sets the screen resolution accordingly.
    On exit: returns 1 if file found but product unknown else 0. */
-   
+
 static int get_machine_id(void)
 {
 	char buffer[256];
 	int returnval = 0;
 	FILE *file = fopen( "/proc/deviceinfo/product", "r" );
-	
+
 	if (file && fgets(buffer, 255, file)) {
 		#ifdef DEBUG
 		printf("product=%s\n", buffer);
 		#endif
 		if (!strncmp(buffer, "SL-5", 4)) {
 			xres = 240; yres = 320;
-		} else if (!strncmp(buffer, "SL-C", 4)) { 
+		} else if (!strncmp(buffer, "SL-C", 4)) {
 			xres = 640; yres = 480;
-		} else if (!strncmp(buffer, "SL-6", 4)) { 
+		} else if (!strncmp(buffer, "SL-6", 4)) {
 			xres = 480; yres = 640;
 		} else {
 			printf("product=%s\n", buffer);
@@ -671,7 +671,7 @@ static void draw_game(void)
 	}
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
-		/* Draw any pipes found in the board array. 
+		/* Draw any pipes found in the board array.
 		   NOTE that this doesn't draw the background tile first.
 		   This is done in REDRAWBOARD above. */
 		src.w = tilew; src.h = tileh;
@@ -696,17 +696,17 @@ static void draw_game(void)
 			draw_digits(highscoretable[0], hiscoredigits, ARRAYSIZE(hiscoredigits));
 		}
 	}
-	
+
 	if ((redraw & REDRAWTIMER) == REDRAWTIMER) {
 		/* The time */
 		draw_digits(gametime, timedigits, ARRAYSIZE(timedigits));
 	}
-	
+
 	if ((redraw & REDRAWSCORE) == REDRAWSCORE) {
 		/* The score */
 		draw_digits(score, scoredigits, ARRAYSIZE(scoredigits));
 	}
-	
+
 
 	if ((redraw & REDRAWPREVIEW) == REDRAWPREVIEW) {
 		draw_preview();
@@ -723,7 +723,7 @@ static void draw_game(void)
 			row++;
 		}
 	}
-	
+
 	if ((redraw & REDRAWPIPE) == REDRAWPIPE) {
 		/* Draw one or more pipe pieces within the board.
 		   The offsets into the board array are in the
@@ -735,7 +735,7 @@ static void draw_game(void)
 			row++;
 		}
 	}
-	
+
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
 		/* Show the help pages */
 
@@ -788,7 +788,7 @@ static void draw_ascii(const char *const text, int xpos, int ypos)
 {
 	SDL_Rect src, dest;
 	int count = 0, x = xpos, y = ypos;
-	
+
 	while(text[count] != 0) {
 		while(text[count] == '\n') {
 			x = xpos;
@@ -843,14 +843,14 @@ static void draw_digits(int value, SDL_Rect *label, int len) {
 static void initialise_new_game(void)
 {
 	int rowloop, colloop, count;
-	
+
 	game_mode = GAMEON;
 	redraw = REDRAWALL;
 	score = 0;
 	disablescoring = FALSE;
 	flashhighscorestate = FALSE;
 	gametime = GAMETIME;
-	
+
 	/* Clear the game board array */
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
@@ -862,11 +862,11 @@ static void initialise_new_game(void)
 	for (count = 0; count < PREVIEWARRAYSIZE; count++) {
 		previewarray[count] = getnextpipepiece();
 	}
-	
+
 	/* Place end points and record in game board array. */
 	boardarray[rand() % BOARDH][0] = 1;	/* yx */
 	boardarray[rand() % BOARDH][BOARDW - 1] = 0;	/* yx */
-	
+
 	drawpipearray[0].row = NULLPIPEVAL;
 }
 
@@ -893,11 +893,11 @@ static int getnextpipepiece(void)
  ***************************************************************************/
 /* This fills the pipe array with a set frequency of pipe pieces. The array
    is then shuffled. */
-   
+
 static void fillpipearray(void)
 {
 	int nextpointer = 0, count, temp, swap;
-	
+
 	/* Fill pipe array with our recommended frequency */
 	nextpointer = fillpipearraypieces(2, 7, nextpointer);
 	nextpointer = fillpipearraypieces(3, 7, nextpointer);
@@ -1179,7 +1179,7 @@ static void manage_help_input(int input)
 {
 	int rowloop, colloop, count = 0, leakypipefound = FALSE;
 	int nomorepipes, passcounter = FILLEDCOUNTERBASE, filled = TRUE, endpipefound = FALSE;
-	
+
 	switch(input) {
 		case SDLK_ESCAPE:
 			game_mode = previous_game_mode;
@@ -1189,7 +1189,7 @@ static void manage_help_input(int input)
 				   and it wasn't designed to have anything drawn over the top of
 				   it, so the pipe network needs to be rebuilt. At this point the
 				   deadpipesarray still holds the filled pipe network so it just
-				   needs to be decoded.*/ 
+				   needs to be decoded.*/
 				do {
 					nomorepipes = TRUE;
 					for (rowloop = 0; rowloop < BOARDH; rowloop++) {
@@ -1280,7 +1280,7 @@ static void createdeadpipesarray(void)
 		pointsarray[rowloop][0] = pointsarray[rowloop][1] = pointsarray[rowloop][3] = 0;
 		pointsarray[rowloop][2] = NULLPIPEVAL;	/* dead point. */
 	}
-	
+
 	/* Find endpoints in game board array. */
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
@@ -1305,20 +1305,20 @@ static void createdeadpipesarray(void)
 					case 0 :	/* north. */
 						targety = pointsarray[rowloop][0] - 1;
 						targetx = pointsarray[rowloop][1];
-						break;				
+						break;
 					case 1 :	/* east. */
 						targety = pointsarray[rowloop][0];
 						targetx = pointsarray[rowloop][1] + 1;
-						break;				
+						break;
 					case 2 :	/* south. */
 						targety = pointsarray[rowloop][0] + 1;
 						targetx = pointsarray[rowloop][1];
-						break;				
+						break;
 					case 3 :	/* west. */
 						targety = pointsarray[rowloop][0];
 						targetx = pointsarray[rowloop][1] - 1;
-						break;				
-				}				
+						break;
+				}
 				/* Get target pipe type. */
 				if (targety < 0 || targety >= BOARDH || targetx < 0 || targetx >= BOARDW) {
 					targettype = NULLPIPEVAL;	/* targets outside the game board are invalid. */
@@ -1329,55 +1329,55 @@ static void createdeadpipesarray(void)
 				switch (targettype) {
 					case 0 :
 						north = FALSE; east = FALSE; south = FALSE; west = TRUE;
-						break;				
+						break;
 					case 1 :
 						north = FALSE; east = TRUE; south = FALSE; west = FALSE;
-						break;				
+						break;
 					case 2 :
 						north = TRUE; east = FALSE; south = FALSE; west = TRUE;
-						break;				
+						break;
 					case 3 :
 						north = FALSE; east = FALSE; south = TRUE; west = TRUE;
-						break;				
+						break;
 					case 4 :
 						north = FALSE; east = TRUE; south = TRUE; west = FALSE;
-						break;				
+						break;
 					case 5 :
 						north = TRUE; east = TRUE; south = FALSE; west = FALSE;
-						break;				
+						break;
 					case 6 :
 						north = TRUE; east = FALSE; south = TRUE; west = TRUE;
-						break;				
+						break;
 					case 7 :
 						north = FALSE; east = TRUE; south = TRUE; west = TRUE;
-						break;				
+						break;
 					case 8 :
 						north = TRUE; east = TRUE; south = TRUE; west = FALSE;
-						break;				
+						break;
 					case 9 :
 						north = TRUE; east = TRUE; south = FALSE; west = TRUE;
-						break;				
+						break;
 					case 10 :
 						north = TRUE; east = TRUE; south = TRUE; west = TRUE;
-						break;				
+						break;
 					case 11 :
 						north = FALSE; east = TRUE; south = FALSE; west = TRUE;
-						break;				
+						break;
 					case 12 :
 						north = TRUE; east = FALSE; south = TRUE; west = FALSE;
-						break;				
+						break;
 					case 13 :
 						north = FALSE; east = FALSE; south = FALSE; west = TRUE;
-						break;				
+						break;
 					case 14 :
 						north = TRUE; east = FALSE; south = FALSE; west = FALSE;
-						break;				
+						break;
 					case 15 :
 						north = FALSE; east = TRUE; south = FALSE; west = FALSE;
-						break;				
+						break;
 					case 16 :
 						north = FALSE; east = FALSE; south = TRUE; west = FALSE;
-						break;				
+						break;
 					default :
 						north = FALSE; east = FALSE; south = FALSE; west = FALSE;
 						break;
@@ -1416,7 +1416,7 @@ static void createdeadpipesarray(void)
 								} else {
 									freepointer = count;	/* record this as we'll use it to store the new point. */
 								}
-							}						
+							}
 							if (!pointsconverge) {
 								pointsarray[freepointer][0] = targety; pointsarray[freepointer][1] = targetx;
 								pointsarray[freepointer][2] = 0; pointsarray[freepointer][3] = filledcounter + 1;	/* process it next do-while iteration. */
@@ -1507,7 +1507,7 @@ static void createdeadpipesarray(void)
 			}
 		}
 	}
-	
+
 	#ifdef DEBUG
 	printf("deadpipesarray:-\n");
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
@@ -1518,7 +1518,7 @@ static void createdeadpipesarray(void)
 	}
 	printf("\n");
 	#endif
-	
+
 	cleardeadpipesy = 0;
 	cleardeadpipesx = 0;
 	game_mode = GAMECLEARDEADPIPES; /* And off we go next main loop cycle... */
@@ -1564,12 +1564,12 @@ static void cleardeadpipes(void)
  * Fill Pipes                                                              *
  ***************************************************************************/
 /* This fills one or several pipes at a time. */
-   
+
 static void fillpipes(void)
 {
 	int rowloop, colloop, count = 0;
 	int leakypipefound, nomorepipes;
-	
+
 	/* Show all filled pipes onscreen for this passcounter */
 	leakypipefound = FALSE;
 	nomorepipes = TRUE;
@@ -1595,9 +1595,9 @@ static void fillpipes(void)
 			}
 		}
 	}
-	
+
 	fillpipespasscounter++;
-	
+
 	if (leakypipefound || nomorepipes) {
 		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
 		if (!disablescoring && score > highscoretable[0]) {
@@ -1610,11 +1610,11 @@ static void fillpipes(void)
 			}
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
-			
+
 			#ifdef DEBUG
 			printf("Saving resource file -> ");
 			#endif
-			
+
 			save_rc_file();	/* This saves the new highscore[s] */
 		} else {
 			game_mode = GAMEOVER;
@@ -1631,15 +1631,15 @@ static void read_rc_file(void)
 	char buffer[256];
 	FILE* file;
 	int result, value, count;
-		
+
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
 	strcat(buffer, RESOURCEFILE);
-	
+
 	#ifdef DEBUG
 	printf("%s\n", buffer);
 	#endif
-	
+
 	if ((file = fopen(buffer,"r")) == NULL) {
 		printf("%s: Cannot read from file %s\n", __func__, buffer);
 		return;
@@ -1666,7 +1666,7 @@ static void read_rc_file(void)
 		#endif
 		highscoretable[0] = value;
 	}
-	
+
 	result = fscanf(file,"%s", buffer);	/* [highscoreboard0] */
 	if (result != 1 || strcmp(buffer, "[highscoreboard0]") != 0) {
 		printf("%s: Data from resource file is unreliable\n", __func__);
@@ -1694,7 +1694,7 @@ static void read_rc_file(void)
 	#ifdef DEBUG
 	printf("\n");
 	#endif
-	
+
 	fclose(file);
 }
 
@@ -1707,22 +1707,22 @@ static void save_rc_file(void)
 	char buffer[256];
 	FILE* file;
 	int count;
-		
+
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
 	strcat(buffer, RESOURCEFILE);
-	
+
 	#ifdef DEBUG
 	printf("%s\n", buffer);
 	#endif
-	
+
 	if ((file = fopen(buffer,"w")) == NULL) {
 		printf("%s: Cannot write to file %s\n", __func__, buffer);
 		return;
 	}
 
 	fprintf(file,"[highscore0]\n%i\n", highscoretable[0]);
-	
+
 	fprintf(file,"[highscoreboard0]\n");
 	for (count = 0; count < BOARDH * BOARDW; count++) {
 		if (count > 0 && count % BOARDH == 0) fprintf(file,"\n");
