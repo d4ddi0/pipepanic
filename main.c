@@ -965,6 +965,16 @@ static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled)
 	return;
 }
 
+static void toggle_fullscreen(void)
+{
+	if (sdl_fullscreen & SDL_WINDOW_FULLSCREEN_DESKTOP)
+		sdl_fullscreen = 0;
+	else
+		sdl_fullscreen = SDL_WINDOW_FULLSCREEN_DESKTOP;
+
+	SDL_SetWindowFullscreen(win, sdl_fullscreen);
+}
+
 static void manage_window_event(const SDL_Event *event)
 {
 	switch(event->window.event) {
@@ -1006,6 +1016,12 @@ static void manage_user_input(void)
 					if(game_mode == GAMESHOWHELP) {
 						manage_help_input(event.key.keysym.sym);
 					}
+				case SDLK_RETURN:
+					if (!(KMOD_ALT & SDL_GetModState()))
+						break;
+				case SDLK_F11:
+					toggle_fullscreen();
+					break;
 				default:
 					break;
 				}
