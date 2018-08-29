@@ -212,43 +212,42 @@ int main(int argc, char *argv[])
 	Uint32 timeout = 0;
 	/* Main game loop */
 	while(quit == 0) {
-		Uint32 ticks;
+		Uint32 ticks = SDL_GetTicks();;
 
-		do {
-			ticks = SDL_GetTicks();
-			draw_game();
-			manage_user_input();
-			SDL_Delay(9);
-		} while (ticks < timeout);
+		draw_game();
+		manage_user_input();
 
-		switch (game_mode) {
-		case GAMEON:
-			timeout = ticks + 1000;
-			redraw = redraw | REDRAWTIMER;
-			gametime = gametime - 1;
-			if (gametime <= 0) {
-				gametime = 0;
-				createdeadpipesarray();
-				timeout = 0;
+		if (ticks >= timeout) {
+			switch (game_mode) {
+			case GAMEON:
+				timeout = ticks + 1000;
+				redraw = redraw | REDRAWTIMER;
+				gametime = gametime - 1;
+				if (gametime <= 0) {
+					gametime = 0;
+					createdeadpipesarray();
+					timeout = 0;
+				}
+				break;
+			case GAMECLEARDEADPIPES:
+				timeout = ticks + CLEARDEADPIPESTIMEOUT;
+				cleardeadpipes();
+				if (game_mode == GAMEFILLPIPES) {
+					timeout = 0;
+				}
+				break;
+			case GAMEFILLPIPES:
+				timeout = ticks + FILLPIPESTIMEOUT;
+				fillpipes();
+				break;
+			case GAMEFLASHHIGHSCORE:
+				timeout = ticks + FLASHHIGHSCORETIMEOUT;
+				redraw = redraw | REDRAWHIGHSCORE;
+				flashhighscorestate = !flashhighscorestate;
+				break;
 			}
-			break;
-		case GAMECLEARDEADPIPES:
-			timeout = ticks + CLEARDEADPIPESTIMEOUT;
-			cleardeadpipes();
-			if (game_mode == GAMEFILLPIPES) {
-				timeout = 0;
-			}
-			break;
-		case GAMEFILLPIPES:
-			timeout = ticks + FILLPIPESTIMEOUT;
-			fillpipes();
-			break;
-		case GAMEFLASHHIGHSCORE:
-			timeout = ticks + FLASHHIGHSCORETIMEOUT;
-			redraw = redraw | REDRAWHIGHSCORE;
-			flashhighscorestate = !flashhighscorestate;
-			break;
 		}
+		SDL_Delay(9);
 	}
 
 	/* Shutdown all subsystems */
