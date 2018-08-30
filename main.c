@@ -223,10 +223,15 @@ int main(int argc, char *argv[])
 				redraw = redraw | REDRAWTIMER;
 				gametime = gametime - 1;
 				if (gametime <= 0) {
-					gametime = 0;
-					createdeadpipesarray();
 					timeout = 0;
+					game_mode = GAMEFINISH;
 				}
+				break;
+			case GAMEFINISH:
+				score = score + gametime * FILLNOWSCORE;
+				gametime = 0;
+				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
+				createdeadpipesarray();
 				break;
 			case GAMECLEARDEADPIPES:
 				timeout = ticks + CLEARDEADPIPESTIMEOUT;
@@ -1098,10 +1103,7 @@ static void manage_mouse_input(void)
 				drawpipearray[1].row = NULLPIPEVAL;
 				redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
 			} else if (boardarray[row][column] == 0) {
-				score = score + gametime * FILLNOWSCORE;
-				gametime = 0;
-				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-				createdeadpipesarray();
+				game_mode = GAMEFINISH;
 			}
 
 			#ifdef DEBUG
@@ -1115,14 +1117,7 @@ static void manage_mouse_input(void)
 			printf("\n");
 			#endif
 		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
-			/* Process Fill clicks */
-			score = score + gametime * FILLNOWSCORE;
-			gametime = 0;
-			redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-			createdeadpipesarray();
-			#ifdef DEBUG
-			printf("Fill\n");
-			#endif
+			game_mode = GAMEFINISH;
 		}
 		/* No break. fall through for GAMEON */
 	case GAMEFLASHHIGHSCORE:
