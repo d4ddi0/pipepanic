@@ -61,9 +61,8 @@ static SDL_Texture *ascii;
 static SDL_Rect mouse_scale;
 static SDL_Event event;
 static char *user_home_dir;
-static int quit = 0;
-static int game_mode = GAMEON;
-static int previous_game_mode = 0;
+static enum game_mode game_mode = GAMEON;
+static enum game_mode previous_game_mode = 0;
 static int redraw = REDRAWALL;
 static int highscoretable[5] = {0, 0, 0, 0, 0};
 static int highscoreboard[5][BOARDH * BOARDW];
@@ -211,7 +210,7 @@ int main(int argc, char *argv[])
 	initialise_new_game();
 	Uint32 timeout = 0;
 	/* Main game loop */
-	while(quit == 0) {
+	while(game_mode != GAMEQUIT) {
 		Uint32 ticks = SDL_GetTicks();;
 
 		draw_game();
@@ -245,6 +244,8 @@ int main(int argc, char *argv[])
 				redraw = redraw | REDRAWHIGHSCORE;
 				flashhighscorestate = !flashhighscorestate;
 				break;
+			case GAMEQUIT:
+				continue;
 			}
 		}
 		SDL_Delay(9);
@@ -1009,7 +1010,7 @@ static void manage_user_input(void)
 			switch(event.key.keysym.sym) {
 				case SDLK_ESCAPE:	/* Cancel on the Zaurus */
 					if (game_mode != GAMESHOWHELP)
-						quit = 1;
+						game_mode = GAMEQUIT;
 				case SDLK_LEFT:
 				case SDLK_RIGHT:
 					if(game_mode == GAMESHOWHELP) {
@@ -1026,7 +1027,7 @@ static void manage_user_input(void)
 				}
 				break;
 			case SDL_QUIT:
-					quit = 1;
+				game_mode = GAMEQUIT;
 				break;
 			case SDL_MOUSEBUTTONDOWN:
 				manage_mouse_input();
