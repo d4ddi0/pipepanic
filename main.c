@@ -1176,54 +1176,10 @@ static void manage_mouse_input(void)
 
 static void manage_help_input(int input)
 {
-	int rowloop, colloop, count = 0, leakypipefound = FALSE;
-	int nomorepipes, passcounter = FILLEDCOUNTERBASE, filled = TRUE, endpipefound = FALSE;
-
 	switch(input) {
 		case SDLK_ESCAPE:
 			game_mode = previous_game_mode;
 			redraw = REDRAWALL;
-			if (game_mode == GAMEFLASHHIGHSCORE || game_mode == GAMEOVER) {
-				/* I originally wrote this game in Javascript for a web browser
-				   and it wasn't designed to have anything drawn over the top of
-				   it, so the pipe network needs to be rebuilt. At this point the
-				   deadpipesarray still holds the filled pipe network so it just
-				   needs to be decoded.*/
-				do {
-					nomorepipes = TRUE;
-					for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-						for (colloop = 0; colloop < BOARDW; colloop++) {
-							if (deadpipesarray[rowloop][colloop] == passcounter || deadpipesarray[rowloop][colloop] - LEAKYPIPEVAL == passcounter) {
-								/* Mark pipe to be drawn */
-								drawpipearray[count].row = rowloop;
-								drawpipearray[count].col = colloop;
-								drawpipearray[count].filled = filled;
-								count++;
-								/* If a leaky pipe is found then after this pass all pipes will be unfilled. */
-								if (deadpipesarray[rowloop][colloop] >= FILLEDCOUNTERBASE + LEAKYPIPEVAL) {
-									leakypipefound = TRUE;
-								}
-								/* At least one pipe was found for this pass */
-								nomorepipes = FALSE;
-							} else if (deadpipesarray[rowloop][colloop] == DEADPIPEVAL && boardarray[rowloop][colloop] == 1 && !endpipefound) {
-								/* Mark the unvisited end pipe for drawing */
-								drawpipearray[count].row = rowloop;
-								drawpipearray[count].col = colloop;
-								drawpipearray[count].filled = FALSE;
-								count++;
-								endpipefound = TRUE;	/* Only record it once */
-							}
-						}
-					}
-					if(leakypipefound) filled = FALSE;	/* Draw unfilled pipes from now on */
-					passcounter++;
-				} while(!nomorepipes);
-				drawpipearray[count].row = NULLPIPEVAL;
-				redraw = (redraw | REDRAWPIPE) ^ REDRAWALLPIPES;
-			}
-			#ifdef DEBUG
-			printf("Help->Exit\n");
-			#endif
 			break;
 		case SDLK_LEFT:
 			if(helppage > 0) {
