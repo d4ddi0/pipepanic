@@ -1051,9 +1051,33 @@ static int mouse_event_in_rect(int mx, int my, SDL_Rect *rect)
 		my >= rect->y && my < rect->y + rect->h);
 }
 
+static void place_pipe(int row, int column)
+{
+
+	/* Place pipe piece from start of preview array. */
+	if (boardarray[row][column] != NULLPIPEVAL) {
+		score = score + PIPEOVERWRITESCORE;
+	} else {
+		score = score + PIPEPLACEMENTSCORE;
+	}
+	boardarray[row][column] = previewarray[0];
+	/* Move all preview pieces down 1 place. */
+	for (int count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
+		previewarray[count] = previewarray[count + 1];
+	}
+	/* Add a new preview piece at the end. */
+	previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
+	/* Mark tile for drawing and redraw everything related */
+	drawpipearray[0].row = row;
+	drawpipearray[0].col = column;
+	drawpipearray[0].filled = FALSE;
+	drawpipearray[1].row = NULLPIPEVAL;
+	redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
+}
+
 static void manage_mouse_input(void)
 {
-	int mbut, mx, my, count;
+	int mbut, mx, my;
 	int column = 0, row = 0;
 
 	mbut = SDL_GetMouseState(&mx, &my);
@@ -1085,23 +1109,7 @@ static void manage_mouse_input(void)
 
 			/* Don't allow replacing of the end points. */
 			if (boardarray[row][column] > 1) {
-				/* Place pipe piece from start of preview array. */
-				if (boardarray[row][column] != NULLPIPEVAL) {
-					score = score + PIPEOVERWRITESCORE;
-				} else {
-					score = score + PIPEPLACEMENTSCORE;
-				}
-				boardarray[row][column] = previewarray[0];
-				/* Move all preview pieces down 1 place. */
-				for (count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
-					previewarray[count] = previewarray[count + 1];
-				}
-				/* Add a new preview piece at the end. */
-				previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
-				/* Mark tile for drawing and redraw everything related */
-				drawpipearray[0].row = row; drawpipearray[0].col = column; drawpipearray[0].filled = FALSE;
-				drawpipearray[1].row = NULLPIPEVAL;
-				redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
+				place_pipe(row, column);
 			} else if (boardarray[row][column] == 0) {
 				game_mode = GAMEFINISH;
 			}
