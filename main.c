@@ -218,6 +218,9 @@ int main(int argc, char *argv[])
 
 		if (ticks >= timeout) {
 			switch (game_mode) {
+			case GAMESTART:
+				initialise_new_game();
+				break;
 			case GAMEON:
 				timeout = ticks + 1000;
 				redraw = redraw | REDRAWTIMER;
@@ -1132,11 +1135,7 @@ static void manage_mouse_input(void)
 	case GAMEOVER:
 		/* Process New Game clicks */
 		if (mouse_event_in_rect(mx, my, &new_game_label)) {
-			/* Initialise new game */
-			initialise_new_game();
-			#ifdef DEBUG
-			printf("New Game\n");
-			#endif
+			game_mode = GAMESTART;
 		} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
 			/* Process High Score clicks */
 			initialise_new_game();
