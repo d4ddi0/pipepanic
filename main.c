@@ -25,17 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 #include <time.h>
 #include "main.h"
 
-/* function like macro to wrap error reporting in case of blit error
- * in ifdef DEBUG, so we don't waste resources on it if noone will see it.
- * */
-#ifdef DEBUG
-#define blit(stex, srect, drect) do { \
-	if (SDL_RenderCopy(rrr, stex, srect, drect) < 0) \
-	    printf("%s: SDL_RenderCopy  error: %s\n", __func__, SDL_GetError()); \
-	} while (0)
-#else
 #define blit(stex, srect, drect) SDL_RenderCopy(rrr, stex, srect, drect)
-#endif
 
 struct drawpipe {
 	int row;
@@ -136,16 +126,7 @@ int main(int argc, char *argv[])
 	srand((unsigned) time(NULL));	/* Seed C's random number generator */
 
 	user_home_dir = getenv("HOME");
-
-	#ifdef DEBUG
-	printf("HOME=%s\n", user_home_dir);
-	#endif
-
 	if (get_machine_id()) return 1;	/* This sets up the screen and tile sizes. */
-
-	#ifdef DEBUG
-	printf("Reading resource file -> ");
-	#endif
 	read_rc_file();	/* This gets the saved highscore[s] */
 
 	/* Process any command line arguments. These will override any found in the resource file. */
@@ -187,10 +168,6 @@ int main(int argc, char *argv[])
 	}
 
 	atexit(SDL_Quit);
-
-	#ifdef DEBUG
-	printf("Setting video mode %ix%i\n", xres, yres);
-	#endif
 
 	/* Set SDL video mode */
 
@@ -318,9 +295,6 @@ static int get_machine_id(void)
 	FILE *file = fopen( "/proc/deviceinfo/product", "r" );
 
 	if (file && fgets(buffer, 255, file)) {
-		#ifdef DEBUG
-		printf("product=%s\n", buffer);
-		#endif
 		if (!strncmp(buffer, "SL-5", 4)) {
 			xres = 240; yres = 320;
 		} else if (!strncmp(buffer, "SL-C", 4)) {
@@ -1093,11 +1067,6 @@ static void manage_mouse_input(void)
 	if (mbut != SDL_BUTTON_LEFT)
 		return;
 
-
-	#ifdef DEBUG
-	printf("mbut=%i mx=%i my=%i\n", mbut, mx, my);
-	#endif
-
 	switch(game_mode) {
 	case GAMEON:
 		if (mouse_event_in_rect(mx, my, &gameboard_rect)) {
@@ -1106,27 +1075,12 @@ static void manage_mouse_input(void)
 			column = (mx - gameboard_rect.x) / tilew;
 			row = (my - gameboard_rect.y) / tileh;
 
-			#ifdef DEBUG
-			printf("row column : %i %i\n", row, column);
-			#endif
-
 			/* Don't allow replacing of the end points. */
 			if (boardarray[row][column] > 1) {
 				place_pipe(row, column);
 			} else if (boardarray[row][column] == 0) {
 				game_mode = GAMEFINISH;
 			}
-
-			#ifdef DEBUG
-			printf("boardarray:-\n");
-			for (row = 0; row < BOARDH; row++) {
-				for (column = 0; column < BOARDW; column++) {
-					printf("%3i ", boardarray[row][column]);
-				}
-				printf("\n");
-			}
-			printf("\n");
-			#endif
 		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
 			game_mode = GAMEFINISH;
 		}
@@ -1148,17 +1102,11 @@ static void manage_mouse_input(void)
 			gametime = 0;
 			disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
 			createdeadpipesarray();
-			#ifdef DEBUG
-			printf("High Score\n");
-			#endif
 		} else if (mouse_event_in_rect(mx, my, &help_label)) {
 			/* Process Help clicks */
 			previous_game_mode = game_mode;
 			game_mode = GAMESHOWHELP;
 			redraw = redraw | REDRAWHELP;
-			#ifdef DEBUG
-			printf("Help\n");
-			#endif
 		}
 		break;
 	case GAMESHOWHELP:
@@ -1188,18 +1136,12 @@ static void manage_help_input(int input)
 			if(helppage > 0) {
 				helppage = helppage - 1;
 				redraw = redraw | REDRAWHELP;
-				#ifdef DEBUG
-				printf("Help->Left\n");
-				#endif
 			}
 			break;
 		case SDLK_RIGHT:
 			if(helppage < ARRAYSIZE(helppages) - 1) {
 				helppage = helppage + 1;
 				redraw = redraw | REDRAWHELP;
-				#ifdef DEBUG
-				printf("Help->Right\n");
-				#endif
 			}
 			break;
 		default:
@@ -1465,18 +1407,6 @@ static void createdeadpipesarray(void)
 			}
 		}
 	}
-
-	#ifdef DEBUG
-	printf("deadpipesarray:-\n");
-	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-		for (colloop = 0; colloop < BOARDW; colloop++) {
-			printf("%3i ", deadpipesarray[rowloop][colloop]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-	#endif
-
 	cleardeadpipesy = 0;
 	cleardeadpipesx = 0;
 	game_mode = GAMECLEARDEADPIPES; /* And off we go next main loop cycle... */
@@ -1568,11 +1498,6 @@ static void fillpipes(void)
 			}
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
-
-			#ifdef DEBUG
-			printf("Saving resource file -> ");
-			#endif
-
 			save_rc_file();	/* This saves the new highscore[s] */
 		} else {
 			game_mode = GAMEOVER;
@@ -1593,11 +1518,6 @@ static void read_rc_file(void)
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
 	strcat(buffer, RESOURCEFILE);
-
-	#ifdef DEBUG
-	printf("%s\n", buffer);
-	#endif
-
 	if ((file = fopen(buffer,"r")) == NULL) {
 		printf("%s: Cannot read from file %s\n", __func__, buffer);
 		return;
@@ -1608,10 +1528,6 @@ static void read_rc_file(void)
 		printf("%s: Data from resource file is unreliable\n", __func__);
 		fclose(file);
 		return;
-	} else {
-		#ifdef DEBUG
-		printf("%s\n", buffer);
-		#endif
 	}
 	result = fscanf(file,"%i", &value);	/* highscore0 */
 	if (result != 1) {
@@ -1619,9 +1535,6 @@ static void read_rc_file(void)
 		fclose(file);
 		return;
 	} else {
-		#ifdef DEBUG
-		printf("%d\n", value);
-		#endif
 		highscoretable[0] = value;
 	}
 
@@ -1630,10 +1543,6 @@ static void read_rc_file(void)
 		printf("%s: Data from resource file is unreliable\n", __func__);
 		fclose(file);
 		return;
-	} else {
-		#ifdef DEBUG
-		printf("%s\n", buffer);
-		#endif
 	}
 	for (count = 0; count < BOARDH * BOARDW; count++) {
 		result = fscanf(file,"%i", &value);	/* pipe piece id */
@@ -1642,17 +1551,9 @@ static void read_rc_file(void)
 			fclose(file);
 			return;
 		} else {
-			#ifdef DEBUG
-			if (count > 0 && count % BOARDH == 0) printf("\n");
-			printf("%3i ", value);
-			#endif
 			highscoreboard[0][count] = value;
 		}
 	}
-	#ifdef DEBUG
-	printf("\n");
-	#endif
-
 	fclose(file);
 }
 
@@ -1669,10 +1570,6 @@ static void save_rc_file(void)
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
 	strcat(buffer, RESOURCEFILE);
-
-	#ifdef DEBUG
-	printf("%s\n", buffer);
-	#endif
 
 	if ((file = fopen(buffer,"w")) == NULL) {
 		printf("%s: Cannot write to file %s\n", __func__, buffer);
