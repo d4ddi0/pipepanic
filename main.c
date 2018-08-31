@@ -52,7 +52,6 @@ static SDL_Rect mouse_scale;
 static SDL_Event event;
 static char *user_home_dir;
 static enum game_mode game_mode = GAMEON;
-static enum game_mode previous_game_mode = 0;
 static int redraw = REDRAWALL;
 static int highscoretable[5] = {0, 0, 0, 0, 0};
 static int highscoreboard[5][BOARDH * BOARDW];
@@ -74,7 +73,7 @@ static int cleardeadpipesy = 0, cleardeadpipesx = 0;
 static int fillpipespasscounter = FILLEDCOUNTERBASE;
 static int flashhighscorestate = FALSE;
 static int helppage = 0;
-static const char * const helppages[] = {HELPPAGE0, HELPPAGE1, HELPPAGE2,
+static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
 	     HELPPAGE3, HELPPAGE4, HELPPAGE5};
 
 /*						  ! "  #  $  %  &  ' ( ) *  + , - . / 0  1  2  3  4  5  6  7  8  9  : ; <  =  >  ?  @  A  B  C  D  E  F  G  H  I J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [ \ ] ^  _  ' a  b  c  d  e  f g  h  i j k  l m  n  o  p  q  r s  t u  v  w  x  y  z  { | } ~ */
@@ -193,7 +192,7 @@ int main(int argc, char *argv[])
 		draw_game();
 		manage_user_input();
 
-		if (ticks >= timeout) {
+		if (ticks >= timeout && !helppage) {
 			switch (game_mode) {
 			case GAMESTART:
 				initialise_new_game();
@@ -732,7 +731,7 @@ static void draw_game(void)
 		SDL_SetRenderDrawColor(rrr, WHITE, 255);
 		SDL_RenderFillRect(rrr, &gameboard_rect);
 		/* Draw the Exit text and the navigation buttons */
-		if(helppage > 0) {
+		if(helppage > 1) {
 			/* Left arrow */
 			src.x = 2 * tilew; src.y = 7 * tileh;
 			src.w = tilew; src.h = tileh;
@@ -991,13 +990,13 @@ static void manage_user_input(void)
 		case SDL_KEYDOWN:
 			switch(event.key.keysym.sym) {
 				case SDLK_ESCAPE:	/* Cancel on the Zaurus */
-					if (game_mode != GAMESHOWHELP)
+					if (!helppage)
 						game_mode = GAMEQUIT;
 				case SDLK_LEFT:
 				case SDLK_RIGHT:
-					if(game_mode == GAMESHOWHELP) {
+					if(helppage)
 						manage_help_input(event.key.keysym.sym);
-					}
+					break;
 				case SDLK_RETURN:
 					if (!(KMOD_ALT & SDL_GetModState()))
 						break;
@@ -1067,6 +1066,17 @@ static void manage_mouse_input(void)
 	if (mbut != SDL_BUTTON_LEFT)
 		return;
 
+	if (helppage) {
+		if (mouse_event_in_rect(mx, my, &help_l_label)) {
+			manage_help_input(SDLK_LEFT);
+		} else if (mouse_event_in_rect(mx, my, &help_r_label)) {
+			manage_help_input(SDLK_RIGHT);
+		} else if (mouse_event_in_rect(mx, my, &help_exit_label)) {
+			manage_help_input(SDLK_ESCAPE);
+		}
+		return;
+	}
+
 	switch(game_mode) {
 	case GAMEON:
 		if (mouse_event_in_rect(mx, my, &gameboard_rect)) {
@@ -1104,19 +1114,10 @@ static void manage_mouse_input(void)
 			createdeadpipesarray();
 		} else if (mouse_event_in_rect(mx, my, &help_label)) {
 			/* Process Help clicks */
-			previous_game_mode = game_mode;
-			game_mode = GAMESHOWHELP;
+			helppage = 1; /* enter help mode */
 			redraw = redraw | REDRAWHELP;
 		}
 		break;
-	case GAMESHOWHELP:
-		if (mouse_event_in_rect(mx, my, &help_l_label)) {
-			manage_help_input(SDLK_LEFT);
-		} else if (mouse_event_in_rect(mx, my, &help_r_label)) {
-			manage_help_input(SDLK_RIGHT);
-		} else if (mouse_event_in_rect(mx, my, &help_exit_label)) {
-			manage_help_input(SDLK_ESCAPE);
-		}
 	}
 }
 
@@ -1129,11 +1130,11 @@ static void manage_help_input(int input)
 {
 	switch(input) {
 		case SDLK_ESCAPE:
-			game_mode = previous_game_mode;
+			helppage = 0; /* Do not draw help */
 			redraw = REDRAWALL;
 			break;
 		case SDLK_LEFT:
-			if(helppage > 0) {
+			if(helppage > 1) {
 				helppage = helppage - 1;
 				redraw = redraw | REDRAWHELP;
 			}
