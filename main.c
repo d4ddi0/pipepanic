@@ -1047,7 +1047,6 @@ static void place_pipe(int row, int column)
 static void manage_mouse_input(void)
 {
 	int mbut, mx, my;
-	int column = 0, row = 0;
 
 	mbut = SDL_GetMouseState(&mx, &my);
 	mx = (mx - mouse_scale.x) / mouse_scale.w;
@@ -1070,47 +1069,40 @@ static void manage_mouse_input(void)
 		return;
 	}
 
-	switch(game_mode) {
-	case GAMEON:
-		if (mouse_event_in_rect(mx, my, &gameboard_rect)) {
+	if (mouse_event_in_rect(mx, my, &gameboard_rect)) {
+		if (game_mode == GAMEON) {
 			/* Process game board clicks */
 			/* Convert the mouse coordinates to offsets into the board array */
-			column = (mx - gameboard_rect.x) / tilew;
-			row = (my - gameboard_rect.y) / tileh;
+			int column = (mx - gameboard_rect.x) / tilew;
+			int row = (my - gameboard_rect.y) / tileh;
 
-			/* Don't allow replacing of the end points. */
-			if (boardarray[row][column].pipe > PIPEEND) {
+			if (boardarray[row][column].pipe > PIPEEND)
 				place_pipe(row, column);
-			} else if (boardarray[row][column].pipe == PIPESTART) {
+			else if (boardarray[row][column].pipe == PIPESTART)
 				game_mode = GAMEFINISH;
-			}
-		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
+		}
+	} else if (mouse_event_in_rect(mx, my, &fill_label)) {
+		if (game_mode == GAMEON)
 			game_mode = GAMEFINISH;
-		}
-		/* No break. fall through for GAMEON */
-	case GAMEFLASHHIGHSCORE:
-	case GAMEOVER:
-		/* Process New Game clicks */
-		if (mouse_event_in_rect(mx, my, &new_game_label)) {
-			game_mode = GAMESTART;
-		} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
-			/* Process High Score clicks */
-			initialise_new_game();
-			/* Copy the highscoreboard into the board array */
-			for (row = 0; row < BOARDH; row++) {
-				for (column = 0; column < BOARDW; column++) {
-					boardarray[row][column].pipe = highscoreboard[0][row * BOARDH + column];
-				}
+
+	} else if (mouse_event_in_rect(mx, my, &new_game_label)) {
+		game_mode = GAMESTART;
+	} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
+		/* Process High Score clicks */
+		initialise_new_game();
+		/* Copy the highscoreboard into the board array */
+		for (int row = 0; row < BOARDH; row++) {
+			for (int col = 0; col < BOARDW; col++) {
+				boardarray[row][col].pipe = highscoreboard[0][row * BOARDH + col];
 			}
-			gametime = 0;
-			disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
-			createdeadpipesarray();
-		} else if (mouse_event_in_rect(mx, my, &help_label)) {
-			/* Process Help clicks */
-			helppage = 1; /* enter help mode */
-			redraw = redraw | REDRAWHELP;
 		}
-		break;
+		gametime = 0;
+		disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
+		createdeadpipesarray();
+	} else if (mouse_event_in_rect(mx, my, &help_label)) {
+		/* Process Help clicks */
+		helppage = 1; /* enter help mode */
+		redraw = redraw | REDRAWHELP;
 	}
 }
 
