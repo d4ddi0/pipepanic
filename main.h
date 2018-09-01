@@ -65,6 +65,8 @@ enum game_mode {
 #define PREVIEWARRAYSIZE 3
 #define POINTSARRAYSIZE 75
 
+#define PIPESTART (0)
+#define PIPEEND (1)
 #define LEAKYPIPEVAL +50
 #define NULLPIPEVAL 255
 #define DEADPIPEVAL 253

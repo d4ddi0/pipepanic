@@ -843,8 +843,8 @@ static void initialise_new_game(void)
 	}
 
 	/* Place end points and record in game board array. */
-	boardarray[rand() % BOARDH][0].pipe = 1;	/* yx */
-	boardarray[rand() % BOARDH][BOARDW - 1].pipe = 0;	/* yx */
+	boardarray[rand() % BOARDH][0].pipe = PIPEEND;
+	boardarray[rand() % BOARDH][BOARDW - 1].pipe = PIPESTART;
 }
 
 /***************************************************************************
@@ -1079,9 +1079,9 @@ static void manage_mouse_input(void)
 			row = (my - gameboard_rect.y) / tileh;
 
 			/* Don't allow replacing of the end points. */
-			if (boardarray[row][column].pipe > 1) {
+			if (boardarray[row][column].pipe > PIPEEND) {
 				place_pipe(row, column);
-			} else if (boardarray[row][column].pipe == 0) {
+			} else if (boardarray[row][column].pipe == PIPESTART) {
 				game_mode = GAMEFINISH;
 			}
 		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
@@ -1179,7 +1179,7 @@ static void createdeadpipesarray(void)
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
 				/* Create a single point at start heading west (0=n|1=e|2=s|3=w). */
-			if (boardarray[rowloop][colloop].pipe == 0) {
+			if (boardarray[rowloop][colloop].pipe == PIPESTART) {
 				pointsarray[POINTSARRAYSIZE - 1][0] = rowloop;
 				pointsarray[POINTSARRAYSIZE - 1][1] = colloop;
 				pointsarray[POINTSARRAYSIZE - 1][2] = 3;
@@ -1289,7 +1289,7 @@ static void createdeadpipesarray(void)
 				}
 				/* Now that we have all the info we make the MAIN DECISIONS HERE. */
 				/* If source is THE endpoint... */
-				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]].pipe == 1) {
+				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]].pipe == PIPEEND) {
 					if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
 					pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
 				} else {
