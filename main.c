@@ -274,7 +274,7 @@ static void initialize_drawables(int w, int h)
 		exit(1);
 	setup_img_src_rects();
 	setup_gameboard();
-	redraw = REDRAWALL;
+	redraw = (helppage)? REDRAWHELP | REDRAWALL : REDRAWALL;
 	draw_game();
 	SDL_RenderPresent(rrr);
 }
