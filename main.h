@@ -46,7 +46,7 @@ enum game_mode {
 	GAMEQUIT,
 };
 
-#define REDRAWALL (0xFFFF ^ (REDRAWPIPE | REDRAWTILE | REDRAWHELP))
+#define REDRAWALL (0xFFFF ^ (REDRAWPIPE | REDRAWHELP))
 #define REDRAWHELP 256
 #define REDRAWBOARD 128
 #define REDRAWALLPIPES 64
@@ -54,7 +54,6 @@ enum game_mode {
 #define REDRAWTIMER 16
 #define REDRAWSCORE 8
 #define REDRAWPREVIEW 4
-#define REDRAWTILE 2
 #define REDRAWPIPE 1
 #define REDRAWNONE 0
 
@@ -93,5 +92,11 @@ enum game_mode {
 
 #define HELPPAGE5 "Licence\n-----------\nThe source code is licenced under the GNU\nGPL v2 - http://www.gnu.org/copyleft/gpl.html\n\nThe artwork is licenced under the Free Art\nLicence - http://artlibre.org/licence/lal/en/\n\nPipepanic\nCopyright 2006 TheGreenKnight\nthegreenknight1500@hotmail.com\n\nhttp://thunor.org.uk/pipepanic\n\nVersion " VERSION
 
-
-
+/* tile flags attributes of individual tiles */
+#define NORTH (1 << 0)
+#define EAST  (1 << 1)
+#define SOUTH (1 << 2)
+#define WEST  (1 << 3)
+#define CONNECTED_TO_SOURCE (1 << 4)
+#define FILLED (1 << 5)
+#define CHANGED (1 << 6)

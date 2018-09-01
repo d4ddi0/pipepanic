@@ -27,10 +27,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 
 #define blit(stex, srect, drect) SDL_RenderCopy(rrr, stex, srect, drect)
 
-struct drawpipe {
-	int row;
-	int col;
-	int filled;
+
+struct gametile {
+	int pipe;
+	int flags;
 };
 
 /* Variable declarations */
@@ -58,10 +58,9 @@ static int highscoreboard[5][BOARDH * BOARDW];
 static int score = 0;
 static int disablescoring = FALSE;
 static int gametime = GAMETIME;
-static struct drawpipe drawpipearray[BOARDH * BOARDW + 1];
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
-static int boardarray[BOARDH][BOARDW];
+static struct gametile boardarray[BOARDH][BOARDW];
 static SDL_Rect tile_rects[BOARDH][BOARDW];
 static int deadpipesarray[BOARDH][BOARDW];
 static SDL_Rect digit_src[11];
@@ -595,6 +594,27 @@ static void draw_preview(void)
 	}
 }
 
+static void draw_tile(int row, int col, SDL_bool force)
+{
+	struct gametile *tile = &boardarray[row][col];
+
+	SDL_Rect src;
+
+	if (!(tile->flags & CHANGED) && !force)
+		return;
+
+	src.x = 4 * tilew;
+	src.y = 6 * tileh;
+	src.w = tilew;
+	src.h = tileh;
+	blit(tiles, &src, &tile_rects[row][col]);
+	if (tile->pipe != NULLPIPEVAL) {
+		get_pipe_src(tile->pipe, &src, tile->flags & FILLED);
+		blit(tiles, &src, &tile_rects[row][col]);
+		tile->flags &= ~CHANGED;
+	}
+}
+
 /***************************************************************************
  * Draw Game                                                               *
  ***************************************************************************/
@@ -652,16 +672,9 @@ static void draw_game(void)
 	}
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
-		/* Draw any pipes found in the board array.
-		   NOTE that this doesn't draw the background tile first.
-		   This is done in REDRAWBOARD above. */
-		src.w = tilew; src.h = tileh;
 		for (row = 0; row < BOARDH; row++) {
 			for (column = 0; column < BOARDW; column++) {
-				if (boardarray[row][column] != NULLPIPEVAL) {
-					get_pipe_src(boardarray[row][column], &src, FALSE);
-					blit(tiles, &src, &tile_rects[row][column]);
-				}
+				draw_tile(row, column, SDL_TRUE);
 			}
 		}
 	}
@@ -692,28 +705,12 @@ static void draw_game(void)
 	if ((redraw & REDRAWPREVIEW) == REDRAWPREVIEW) {
 		draw_preview();
 	}
+	if (redraw & REDRAWPIPE) {
+		for (int row = 0; row < BOARDH; ++row) {
+			for (int col = 0; col < BOARDW; ++col) {
+				draw_tile(row, col, SDL_FALSE);
 
-	if ((redraw & REDRAWTILE) == REDRAWTILE) {
-		/* Draw one or more background tiles within the board.
-		   The offsets into the board are in the draw pipes array */
-		row = 0;
-		while(drawpipearray[row].row != NULLPIPEVAL) {
-			src.x = 4 * tilew; src.y = 6 * tileh;
-			src.w = tilew; src.h = tileh;
-			blit(tiles, &src, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]);
-			row++;
-		}
-	}
-
-	if ((redraw & REDRAWPIPE) == REDRAWPIPE) {
-		/* Draw one or more pipe pieces within the board.
-		   The offsets into the board array are in the
-		   draw pipes array */
-		row = 0;
-		while(drawpipearray[row].row != NULLPIPEVAL) {
-			get_pipe_src(boardarray[drawpipearray[row].row][drawpipearray[row].col], &src, drawpipearray[row].filled);
-			blit(tiles, &src, &tile_rects[drawpipearray[row].row][drawpipearray[row].col]);
-			row++;
+			}
 		}
 	}
 
@@ -835,7 +832,8 @@ static void initialise_new_game(void)
 	/* Clear the game board array */
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
-			boardarray[rowloop][colloop] = NULLPIPEVAL;
+			boardarray[rowloop][colloop].pipe = NULLPIPEVAL;
+			boardarray[rowloop][colloop].flags = 0;
 		}
 	}
 
@@ -845,10 +843,8 @@ static void initialise_new_game(void)
 	}
 
 	/* Place end points and record in game board array. */
-	boardarray[rand() % BOARDH][0] = 1;	/* yx */
-	boardarray[rand() % BOARDH][BOARDW - 1] = 0;	/* yx */
-
-	drawpipearray[0].row = NULLPIPEVAL;
+	boardarray[rand() % BOARDH][0].pipe = 1;	/* yx */
+	boardarray[rand() % BOARDH][BOARDW - 1].pipe = 0;	/* yx */
 }
 
 /***************************************************************************
@@ -1031,12 +1027,13 @@ static void place_pipe(int row, int column)
 {
 
 	/* Place pipe piece from start of preview array. */
-	if (boardarray[row][column] != NULLPIPEVAL) {
+	if (boardarray[row][column].pipe != NULLPIPEVAL) {
 		score = score + PIPEOVERWRITESCORE;
 	} else {
 		score = score + PIPEPLACEMENTSCORE;
 	}
-	boardarray[row][column] = previewarray[0];
+	boardarray[row][column].pipe = previewarray[0];
+	boardarray[row][column].flags |= CHANGED;
 	/* Move all preview pieces down 1 place. */
 	for (int count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
 		previewarray[count] = previewarray[count + 1];
@@ -1044,11 +1041,7 @@ static void place_pipe(int row, int column)
 	/* Add a new preview piece at the end. */
 	previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
 	/* Mark tile for drawing and redraw everything related */
-	drawpipearray[0].row = row;
-	drawpipearray[0].col = column;
-	drawpipearray[0].filled = FALSE;
-	drawpipearray[1].row = NULLPIPEVAL;
-	redraw = redraw | REDRAWTILE | REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
+	redraw |= REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
 }
 
 static void manage_mouse_input(void)
@@ -1086,9 +1079,9 @@ static void manage_mouse_input(void)
 			row = (my - gameboard_rect.y) / tileh;
 
 			/* Don't allow replacing of the end points. */
-			if (boardarray[row][column] > 1) {
+			if (boardarray[row][column].pipe > 1) {
 				place_pipe(row, column);
-			} else if (boardarray[row][column] == 0) {
+			} else if (boardarray[row][column].pipe == 0) {
 				game_mode = GAMEFINISH;
 			}
 		} else if (mouse_event_in_rect(mx, my, &fill_label)) {
@@ -1106,7 +1099,7 @@ static void manage_mouse_input(void)
 			/* Copy the highscoreboard into the board array */
 			for (row = 0; row < BOARDH; row++) {
 				for (column = 0; column < BOARDW; column++) {
-					boardarray[row][column] = highscoreboard[0][row * BOARDH + column];
+					boardarray[row][column].pipe = highscoreboard[0][row * BOARDH + column];
 				}
 			}
 			gametime = 0;
@@ -1185,15 +1178,15 @@ static void createdeadpipesarray(void)
 	/* Find endpoints in game board array. */
 	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 		for (colloop = 0; colloop < BOARDW; colloop++) {
-			if (boardarray[rowloop][colloop] == 0) {
 				/* Create a single point at start heading west (0=n|1=e|2=s|3=w). */
+			if (boardarray[rowloop][colloop].pipe == 0) {
 				pointsarray[POINTSARRAYSIZE - 1][0] = rowloop;
 				pointsarray[POINTSARRAYSIZE - 1][1] = colloop;
 				pointsarray[POINTSARRAYSIZE - 1][2] = 3;
 				pointsarray[POINTSARRAYSIZE - 1][3] = filledcounter;
 			}
 			/* Duplicate the game board array into the dead pipes array. */
-			deadpipesarray[rowloop][colloop] = boardarray[rowloop][colloop];
+			deadpipesarray[rowloop][colloop] = boardarray[rowloop][colloop].pipe;
 		}
 	}
 	/* MAIN LOOP. Do this while points exist (no points means no more routes). */
@@ -1224,7 +1217,7 @@ static void createdeadpipesarray(void)
 				if (targety < 0 || targety >= BOARDH || targetx < 0 || targetx >= BOARDW) {
 					targettype = NULLPIPEVAL;	/* targets outside the game board are invalid. */
 				} else {
-					targettype = boardarray[targety][targetx];
+					targettype = boardarray[targety][targetx].pipe;
 				}
 				/* Get direction information on the target piece. */
 				switch (targettype) {
@@ -1296,7 +1289,7 @@ static void createdeadpipesarray(void)
 				}
 				/* Now that we have all the info we make the MAIN DECISIONS HERE. */
 				/* If source is THE endpoint... */
-				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] == 1) {
+				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]].pipe == 1) {
 					if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
 					pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
 				} else {
@@ -1425,15 +1418,11 @@ static void cleardeadpipes(void)
 
 	do {
 		/* Officially if the endpoint is unvisited it's dead, but we'll leave it onscreen anyway. */
-		if (deadpipesarray[cleardeadpipesy][cleardeadpipesx] == DEADPIPEVAL && boardarray[cleardeadpipesy][cleardeadpipesx] != 1) {
-			/* Erase dead pipe from the screen. */
-			drawpipearray[0].row = cleardeadpipesy; drawpipearray[0].col = cleardeadpipesx;
-			drawpipearray[1].row = NULLPIPEVAL;
-			redraw = redraw | REDRAWTILE;
-			/* Erase dead pipe from the board array. */
-			boardarray[cleardeadpipesy][cleardeadpipesx] = NULLPIPEVAL;
+		if (deadpipesarray[cleardeadpipesy][cleardeadpipesx] == DEADPIPEVAL && boardarray[cleardeadpipesy][cleardeadpipesx].pipe != 1) {
+			boardarray[cleardeadpipesy][cleardeadpipesx].pipe = NULLPIPEVAL;
+			boardarray[cleardeadpipesy][cleardeadpipesx].flags |= CHANGED;
 			score = score + DEADPIPESCORE;
-			redraw = redraw | REDRAWSCORE;
+			redraw |= REDRAWPIPE | REDRAWSCORE;
 			deadpipefound = TRUE;
 		}
 		/* Work our way from top left to bottom right. */
@@ -1466,12 +1455,10 @@ static void fillpipes(void)
 		for (colloop = 0; colloop < BOARDW; colloop++) {
 			if (deadpipesarray[rowloop][colloop] == fillpipespasscounter || deadpipesarray[rowloop][colloop] - LEAKYPIPEVAL == fillpipespasscounter) {
 				/* Draw filled pipe. */
-				drawpipearray[count].row = rowloop;
-				drawpipearray[count].col = colloop;
-				drawpipearray[count].filled = TRUE;
-				drawpipearray[count + 1].row = NULLPIPEVAL;
+				boardarray[rowloop][colloop].flags |= (CHANGED |
+								       FILLED);
 				count++;
-				redraw = redraw | REDRAWTILE | REDRAWPIPE;
+				redraw |= REDRAWPIPE;
 				/* When displaying the highscoreboard ignore scoring */
 				if (!disablescoring) {
 					score = score + FILLEDPIPESCORE;
@@ -1494,7 +1481,7 @@ static void fillpipes(void)
 			/* Copy the board into the highscoreboard */
 			for (rowloop = 0; rowloop < BOARDH; rowloop++) {
 				for (colloop = 0; colloop < BOARDW; colloop++) {
-					highscoreboard[0][rowloop * BOARDH + colloop] = boardarray[rowloop][colloop];
+					highscoreboard[0][rowloop * BOARDH + colloop] = boardarray[rowloop][colloop].pipe;
 				}
 			}
 			redraw = redraw | REDRAWHIGHSCORE;
