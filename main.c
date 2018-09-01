@@ -61,15 +61,13 @@ static int gametime = GAMETIME;
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
 static struct gametile boardarray[BOARDH][BOARDW];
+static int start_row, start_col;
 static SDL_Rect tile_rects[BOARDH][BOARDW];
-static int deadpipesarray[BOARDH][BOARDW];
 static SDL_Rect digit_src[11];
 static SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
 	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4],
 	preview_rects[PREVIEWARRAYSIZE];
-static int cleardeadpipesy = 0, cleardeadpipesx = 0;
-static int fillpipespasscounter = FILLEDCOUNTERBASE;
 static int flashhighscorestate = FALSE;
 static int helppage = 0;
 static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
@@ -89,9 +87,9 @@ static int getnextpipepiece(void);
 static void fillpipearray(void);
 static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
 static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled);
-static void createdeadpipesarray(void);
+static void set_pipe_directions(void);
 static void cleardeadpipes(void);
-static void fillpipes(void);
+static SDL_bool fillpipes(void);
 static void read_rc_file(void);
 static void save_rc_file(void);
 static void draw_ascii(const char *const text, int xpos, int ypos);
@@ -100,6 +98,7 @@ static void manage_mouse_input(void);
 static void initialize_drawables(int w, int h);
 static void setup_gameboard(void);
 static void setup_img_src_rects(void);
+static void mark_neighbors(int row, int col, int flags);
 
 
 /***************************************************************************
@@ -209,7 +208,9 @@ int main(int argc, char *argv[])
 				score = score + gametime * FILLNOWSCORE;
 				gametime = 0;
 				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-				createdeadpipesarray();
+				set_pipe_directions();
+				mark_neighbors(start_row, start_col, CONNECTED);
+				game_mode = GAMECLEARDEADPIPES;
 				break;
 			case GAMECLEARDEADPIPES:
 				timeout = ticks + CLEARDEADPIPESTIMEOUT;
@@ -219,13 +220,17 @@ int main(int argc, char *argv[])
 				}
 				break;
 			case GAMEFILLPIPES:
-				timeout = ticks + FILLPIPESTIMEOUT;
-				fillpipes();
+				if (fillpipes())
+					game_mode = GAMEOVER;
+				else
+					timeout = ticks + FILLPIPESTIMEOUT;
 				break;
 			case GAMEFLASHHIGHSCORE:
 				timeout = ticks + FLASHHIGHSCORETIMEOUT;
 				redraw = redraw | REDRAWHIGHSCORE;
 				flashhighscorestate = !flashhighscorestate;
+				break;
+			case GAMEOVER:
 				break;
 			case GAMEQUIT:
 				continue;
@@ -844,7 +849,9 @@ static void initialise_new_game(void)
 
 	/* Place end points and record in game board array. */
 	boardarray[rand() % BOARDH][0].pipe = PIPEEND;
-	boardarray[rand() % BOARDH][BOARDW - 1].pipe = PIPESTART;
+	start_row = rand() % BOARDH;
+	start_col = BOARDW - 1;
+	boardarray[start_row][start_col].pipe = PIPESTART;
 }
 
 /***************************************************************************
@@ -1023,6 +1030,113 @@ static int mouse_event_in_rect(int mx, int my, SDL_Rect *rect)
 		my >= rect->y && my < rect->y + rect->h);
 }
 
+static int get_pipe_directions(int targettype)
+{
+	switch (targettype) {
+	case 0 :
+		return WEST;
+	case 1 :
+		return EAST;
+	case 2 :
+		return NORTH | WEST;
+	case 3 :
+		return SOUTH | WEST;
+	case 4 :
+		return EAST | SOUTH ;
+	case 5 :
+		return NORTH | EAST;
+	case 6 :
+		return NORTH | SOUTH | WEST;
+	case 7 :
+		return EAST | SOUTH | WEST;
+	case 8 :
+		return NORTH | EAST | SOUTH;
+	case 9 :
+		return NORTH | EAST | WEST;
+	case 10 :
+		return NORTH | EAST | SOUTH | WEST;
+	case 11 :
+		return EAST | WEST;
+	case 12 :
+		return NORTH | SOUTH;
+	case 13 :
+		return WEST;
+	case 14 :
+		return NORTH;
+	case 15 :
+		return EAST;
+	case 16 :
+		return SOUTH;
+	default :
+		return 0;
+	}
+}
+
+/**
+ * recursively find any neighbors without flags
+ * and mark them with flags
+ */
+static void mark_neighbors(int row, int col, int flags)
+{
+	struct gametile *tile = &boardarray[row][col];
+	tile->flags |= flags;
+	if (row > 0 && tile->flags & NORTH) {
+		if ((boardarray[row -1][col].flags & SOUTH) &&
+		    (!(boardarray[row -1][col].flags & flags)))
+			mark_neighbors(row - 1, col, flags);
+	}
+	if (col < (BOARDW - 1) && tile->flags & EAST) {
+		if ((boardarray[row][col + 1].flags & WEST) &&
+		    (!(boardarray[row][col + 1].flags & flags)))
+			mark_neighbors(row, col + 1, flags);
+	}
+	if (row < (BOARDH - 1) && tile->flags & SOUTH) {
+		if ((boardarray[row + 1][col].flags & NORTH) &&
+		    (!(boardarray[row + 1][col].flags & flags)))
+			mark_neighbors(row + 1, col, flags);
+	}
+	if (col > 0 && tile->flags & WEST) {
+		if ((boardarray[row][col - 1].flags & EAST) &&
+		    (!(boardarray[row][col - 1].flags & flags)))
+			mark_neighbors(row, col - 1, flags);
+	}
+}
+
+/**
+ * return true if the tile has any open ends
+ */
+static SDL_bool is_neighbor_open(int row, int col)
+{
+	if ((row > 0) && (boardarray[row][col].flags & NORTH) &&
+	    (!(boardarray[row -1][col].flags & SOUTH)))
+		return SDL_TRUE;
+
+	if ((row > 0) && (boardarray[row][col].flags & EAST) &&
+	    (!(boardarray[row][col + 1].flags & WEST)))
+		return SDL_TRUE;
+
+	if ((row > 0) && (boardarray[row][col].flags & SOUTH) &&
+	    (!(boardarray[row + 1][col].flags & NORTH)))
+		return SDL_TRUE;
+
+	if ((row > 0) && (boardarray[row][col].flags & WEST) &&
+	    (!(boardarray[row][col - 1].flags & EAST)))
+		return SDL_TRUE;
+
+	return SDL_FALSE;
+}
+
+static void set_pipe_directions(void)
+{
+	for (int row = 0; row < BOARDH; row++) {
+		for (int col = 0; col < BOARDW; ++col) {
+			struct gametile *tile = &boardarray[row][col];
+			tile->flags &= ~(NORTH | EAST | SOUTH | WEST);
+			tile->flags |= get_pipe_directions(tile->pipe);
+		}
+	}
+}
+
 static void place_pipe(int row, int column)
 {
 
@@ -1098,7 +1212,7 @@ static void manage_mouse_input(void)
 		}
 		gametime = 0;
 		disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
-		createdeadpipesarray();
+		game_mode = GAMEFINISH;
 	} else if (mouse_event_in_rect(mx, my, &help_label)) {
 		/* Process Help clicks */
 		helppage = 1; /* enter help mode */
@@ -1136,269 +1250,6 @@ static void manage_help_input(int input)
 }
 
 /***************************************************************************
- * Create Dead Pipes Array                                                 *
- ***************************************************************************/
-/* This is the main guts of the game. Originally I wrote it in JavaScript for
-   use in a browser and have simply pasted it here and converted it.
-   I believe it's quite clever and I found it very enjoyable to write, having
-   no idea how the pipe-filling would be accomplished. Basically a point is
-   created at the start pipe and proceeds to travel through any connected
-   pipes and splits at junctions. Each pipe that is filled is given a number
-   starting at 20 and is incremented as the network fills. This is used to
-   animate the fill with a timer so that all pipes marked 20 get shown, then
-   next timer event all 21s get shown and so on. Leaky pipes are marked and
-   so are dead pipes (those with no connection to the network). Enable DEBUG
-   and look at the array dump in the console for a better understanding. */
-
-static void createdeadpipesarray(void)
-{
-	int count = 0, rowloop = 0, colloop = 0;
-	int pointexists = FALSE, pointsconverge = FALSE;
-	int leakcount = 0, deadcount = 0, freepointer = 0;
-	int filledcounter = FILLEDCOUNTERBASE;
-	int north = FALSE, south = FALSE, east = FALSE, west = FALSE;
-	int targety = 0, targetx = 0;
-	int targettype = NULLPIPEVAL, targetvalid = FALSE, targetvisited = FALSE;
-	/* --- Create 2 dimensional array for the route tracing points. --- */
-	int pointsarray[POINTSARRAYSIZE][4];
-	for (rowloop = 0; rowloop < POINTSARRAYSIZE; rowloop++) {
-		/* Array Format: y|x|direction|passcounter. */
-		pointsarray[rowloop][0] = pointsarray[rowloop][1] = pointsarray[rowloop][3] = 0;
-		pointsarray[rowloop][2] = NULLPIPEVAL;	/* dead point. */
-	}
-
-	/* Find endpoints in game board array. */
-	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-		for (colloop = 0; colloop < BOARDW; colloop++) {
-				/* Create a single point at start heading west (0=n|1=e|2=s|3=w). */
-			if (boardarray[rowloop][colloop].pipe == PIPESTART) {
-				pointsarray[POINTSARRAYSIZE - 1][0] = rowloop;
-				pointsarray[POINTSARRAYSIZE - 1][1] = colloop;
-				pointsarray[POINTSARRAYSIZE - 1][2] = 3;
-				pointsarray[POINTSARRAYSIZE - 1][3] = filledcounter;
-			}
-			/* Duplicate the game board array into the dead pipes array. */
-			deadpipesarray[rowloop][colloop] = boardarray[rowloop][colloop].pipe;
-		}
-	}
-	/* MAIN LOOP. Do this while points exist (no points means no more routes). */
-	do {
-		pointexists = FALSE;
-		for (rowloop = 0; rowloop < POINTSARRAYSIZE; rowloop++) {
-			if (pointsarray[rowloop][2] != NULLPIPEVAL && pointsarray[rowloop][3] == filledcounter) {
-				/* Get target yx.*/
-				switch (pointsarray[rowloop][2]) {	/* point direction. */
-					case 0 :	/* north. */
-						targety = pointsarray[rowloop][0] - 1;
-						targetx = pointsarray[rowloop][1];
-						break;
-					case 1 :	/* east. */
-						targety = pointsarray[rowloop][0];
-						targetx = pointsarray[rowloop][1] + 1;
-						break;
-					case 2 :	/* south. */
-						targety = pointsarray[rowloop][0] + 1;
-						targetx = pointsarray[rowloop][1];
-						break;
-					case 3 :	/* west. */
-						targety = pointsarray[rowloop][0];
-						targetx = pointsarray[rowloop][1] - 1;
-						break;
-				}
-				/* Get target pipe type. */
-				if (targety < 0 || targety >= BOARDH || targetx < 0 || targetx >= BOARDW) {
-					targettype = NULLPIPEVAL;	/* targets outside the game board are invalid. */
-				} else {
-					targettype = boardarray[targety][targetx].pipe;
-				}
-				/* Get direction information on the target piece. */
-				switch (targettype) {
-					case 0 :
-						north = FALSE; east = FALSE; south = FALSE; west = TRUE;
-						break;
-					case 1 :
-						north = FALSE; east = TRUE; south = FALSE; west = FALSE;
-						break;
-					case 2 :
-						north = TRUE; east = FALSE; south = FALSE; west = TRUE;
-						break;
-					case 3 :
-						north = FALSE; east = FALSE; south = TRUE; west = TRUE;
-						break;
-					case 4 :
-						north = FALSE; east = TRUE; south = TRUE; west = FALSE;
-						break;
-					case 5 :
-						north = TRUE; east = TRUE; south = FALSE; west = FALSE;
-						break;
-					case 6 :
-						north = TRUE; east = FALSE; south = TRUE; west = TRUE;
-						break;
-					case 7 :
-						north = FALSE; east = TRUE; south = TRUE; west = TRUE;
-						break;
-					case 8 :
-						north = TRUE; east = TRUE; south = TRUE; west = FALSE;
-						break;
-					case 9 :
-						north = TRUE; east = TRUE; south = FALSE; west = TRUE;
-						break;
-					case 10 :
-						north = TRUE; east = TRUE; south = TRUE; west = TRUE;
-						break;
-					case 11 :
-						north = FALSE; east = TRUE; south = FALSE; west = TRUE;
-						break;
-					case 12 :
-						north = TRUE; east = FALSE; south = TRUE; west = FALSE;
-						break;
-					case 13 :
-						north = FALSE; east = FALSE; south = FALSE; west = TRUE;
-						break;
-					case 14 :
-						north = TRUE; east = FALSE; south = FALSE; west = FALSE;
-						break;
-					case 15 :
-						north = FALSE; east = TRUE; south = FALSE; west = FALSE;
-						break;
-					case 16 :
-						north = FALSE; east = FALSE; south = TRUE; west = FALSE;
-						break;
-					default :
-						north = FALSE; east = FALSE; south = FALSE; west = FALSE;
-						break;
-				}
-				/* Get validity of target move. */
-				targetvalid = FALSE;
-				if (pointsarray[rowloop][2] == 0 && south == TRUE) targetvalid = TRUE;
-				if (pointsarray[rowloop][2] == 1 && west == TRUE) targetvalid = TRUE;
-				if (pointsarray[rowloop][2] == 2 && north == TRUE) targetvalid = TRUE;
-				if (pointsarray[rowloop][2] == 3 && east == TRUE) targetvalid = TRUE;
-				/* Get visited status of target pipe. */
-				targetvisited = FALSE;
-				if (targetvalid) {	/* don't try and reference array elements using -1 ;) */
-					if (deadpipesarray[targety][targetx] >= FILLEDCOUNTERBASE && deadpipesarray[targety][targetx] != NULLPIPEVAL) targetvisited = TRUE;
-				}
-				/* Now that we have all the info we make the MAIN DECISIONS HERE. */
-				/* If source is THE endpoint... */
-				if (boardarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]].pipe == PIPEEND) {
-					if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
-					pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
-				} else {
-					/* ElseIf target is valid and not visited... */
-					if (targetvalid && !targetvisited) {
-						if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
-						pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
-						/* Create a new point at target for each direction. */
-						/* Merge converging paths, caused when 2 sources converge on the same target at the same time. */
-						if (north) {
-							pointsconverge = FALSE;
-							for (count = 0; count < POINTSARRAYSIZE; count++) {
-								if (pointsarray[count][2] != NULLPIPEVAL) {
-									/* We don't want 2 points in the same square going in the same direction. */
-									if (pointsarray[count][0] == targety && pointsarray[count][1] == targetx && pointsarray[count][2] == 0) {
-										pointsconverge = TRUE;
-									}
-								} else {
-									freepointer = count;	/* record this as we'll use it to store the new point. */
-								}
-							}
-							if (!pointsconverge) {
-								pointsarray[freepointer][0] = targety; pointsarray[freepointer][1] = targetx;
-								pointsarray[freepointer][2] = 0; pointsarray[freepointer][3] = filledcounter + 1;	/* process it next do-while iteration. */
-								pointexists = TRUE;
-							}
-						}
-						if (east) {
-							pointsconverge = FALSE;
-							for (count = 0; count < POINTSARRAYSIZE; count++) {
-								if (pointsarray[count][2] != NULLPIPEVAL) {
-									/* We don't want 2 points in the same square going in the same direction. */
-									if (pointsarray[count][0] == targety && pointsarray[count][1] == targetx && pointsarray[count][2] == 1) {
-										pointsconverge = TRUE;
-									}
-								} else {
-									freepointer = count;	/* record this as we'll use it to store the new point. */
-								}
-							}
-							if (!pointsconverge) {
-								pointsarray[freepointer][0] = targety; pointsarray[freepointer][1] = targetx;
-								pointsarray[freepointer][2] = 1; pointsarray[freepointer][3] = filledcounter + 1;	/* process it next do-while iteration. */
-								pointexists = TRUE;
-							}
-						}
-						if (south) {
-							pointsconverge = FALSE;
-							for (count = 0; count < POINTSARRAYSIZE; count++) {
-								if (pointsarray[count][2] != NULLPIPEVAL) {
-									/* We don't want 2 points in the same square going in the same direction. */
-									if (pointsarray[count][0] == targety && pointsarray[count][1] == targetx && pointsarray[count][2] == 2) {
-										pointsconverge = TRUE;
-									}
-								} else {
-									freepointer = count;	/* record this as we'll use it to store the new point. */
-								}
-							}
-							if (!pointsconverge) {
-								pointsarray[freepointer][0] = targety; pointsarray[freepointer][1] = targetx;
-								pointsarray[freepointer][2] = 2; pointsarray[freepointer][3] = filledcounter + 1;	/* process it next do-while iteration. */
-								pointexists = TRUE;
-							}
-						}
-						if (west) {
-							pointsconverge = FALSE;
-							for (count = 0; count < POINTSARRAYSIZE; count++) {
-								if (pointsarray[count][2] != NULLPIPEVAL) {
-									/* We don't want 2 points in the same square going in the same direction. */
-									if (pointsarray[count][0] == targety && pointsarray[count][1] == targetx && pointsarray[count][2] == 3) {
-										pointsconverge = TRUE;
-									}
-								} else {
-									freepointer = count;	/* record this as we'll use it to store the new point. */
-								}
-							}
-							if (!pointsconverge) {
-								pointsarray[freepointer][0] = targety; pointsarray[freepointer][1] = targetx;
-								pointsarray[freepointer][2] = 3; pointsarray[freepointer][3] = filledcounter + 1;	/* process it next do-while iteration. */
-								pointexists = TRUE;
-							}
-						}
-					} else {
-						/* ElseIf target is valid and visited... */
-						if (targetvalid && targetvisited) {
-							if (deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] >= 0 && deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] < FILLEDCOUNTERBASE) deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter;	/* mark source as filled. */
-							pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
-						} else {
-							/* ElseIf target is not valid... */
-							if  (!targetvalid) {
-								deadpipesarray[pointsarray[rowloop][0]][pointsarray[rowloop][1]] = filledcounter + LEAKYPIPEVAL;	/* mark source as leaky retaining fill count (important). */
-								pointsarray[rowloop][2] = NULLPIPEVAL;	/* kill current point. */
-								leakcount++;
-							}
-						}
-					}
-				}
-			}
-		}
-		filledcounter++;
-	} while (pointexists);
-
-	/* MARK DEAD PIPES. The easy bit :) */
-	deadcount = 0;
-	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-		for (colloop = 0; colloop < BOARDW; colloop++) {
-			if (deadpipesarray[rowloop][colloop] >= 0 && deadpipesarray[rowloop][colloop] < FILLEDCOUNTERBASE) {
-				deadpipesarray[rowloop][colloop] = DEADPIPEVAL;
-				deadcount++;	/* count can include endpoint if it is unvisited. */
-			}
-		}
-	}
-	cleardeadpipesy = 0;
-	cleardeadpipesx = 0;
-	game_mode = GAMECLEARDEADPIPES; /* And off we go next main loop cycle... */
-}
-
-/***************************************************************************
  * Clear Dead Pipes                                                        *
  ***************************************************************************/
 /* This clears one dead pipe at a time from the board array and the screen
@@ -1406,28 +1257,62 @@ static void createdeadpipesarray(void)
 
 static void cleardeadpipes(void)
 {
-	int deadpipefound = FALSE, nomorepipes = FALSE;
-
-	do {
-		/* Officially if the endpoint is unvisited it's dead, but we'll leave it onscreen anyway. */
-		if (deadpipesarray[cleardeadpipesy][cleardeadpipesx] == DEADPIPEVAL && boardarray[cleardeadpipesy][cleardeadpipesx].pipe != 1) {
-			boardarray[cleardeadpipesy][cleardeadpipesx].pipe = NULLPIPEVAL;
-			boardarray[cleardeadpipesy][cleardeadpipesx].flags |= CHANGED;
-			score = score + DEADPIPESCORE;
-			redraw |= REDRAWPIPE | REDRAWSCORE;
-			deadpipefound = TRUE;
+	for (int row = 0; row < BOARDH; ++row) {
+		for (int col = 0; col < BOARDW; ++col) {
+			struct gametile *tile = &boardarray[row][col];
+			if ((tile->pipe != NULLPIPEVAL) &&
+			    (!(tile->flags & CONNECTED))) {
+				tile->pipe = NULLPIPEVAL;
+				tile->flags = CHANGED;
+				score += DEADPIPESCORE;
+				redraw |= REDRAWPIPE | REDRAWSCORE;
+				return; /* return immedaitely */
+			}
 		}
-		/* Work our way from top left to bottom right. */
-		cleardeadpipesx++;
-		if (cleardeadpipesx >= BOARDW) {
-			cleardeadpipesx = 0; cleardeadpipesy++;
-			if (cleardeadpipesy >= BOARDH) nomorepipes = TRUE;
-		}
-	} while (!deadpipefound && !nomorepipes);
-	if (nomorepipes) {
-		fillpipespasscounter = FILLEDCOUNTERBASE;
-		game_mode = GAMEFILLPIPES;	/* And off we go next main loop cycle... */
 	}
+
+	game_mode = GAMEFILLPIPES;
+}
+
+
+/**
+ * return SDL_TRUE if  any neighbors has flags marked
+ */
+static SDL_bool check_neighbors(int row, int col, int flags)
+{
+	struct gametile *tile = &boardarray[row][col];
+
+	if ((row > 0 && tile->flags & NORTH) &&
+	    (boardarray[row -1][col].flags & SOUTH) &&
+	    (boardarray[row -1][col].flags & flags))
+		return SDL_TRUE;
+
+	if ((col < (BOARDW - 1) && tile->flags & EAST) &&
+	    (boardarray[row][col + 1].flags & WEST) &&
+	    (boardarray[row][col + 1].flags & flags))
+		return SDL_TRUE;
+
+	if ((row < (BOARDH - 1) && tile->flags & SOUTH) &&
+	    (boardarray[row + 1][col].flags & NORTH) &&
+	    (boardarray[row + 1][col].flags & flags))
+		return SDL_TRUE;
+
+	if ((col > 0 && tile->flags & WEST) &&
+	    (boardarray[row][col - 1].flags & EAST) &&
+	    (boardarray[row][col - 1].flags & flags))
+		return SDL_TRUE;
+
+	return SDL_FALSE;
+}
+
+static SDL_bool fill_pipe(int row, int col)
+{
+	boardarray[row][col].flags &= ~FILLING;
+	boardarray[row][col].flags |= (FILLED | CHANGED);
+	if (!disablescoring)
+		score += FILLEDPIPESCORE;
+	redraw |= REDRAWPIPE | REDRAWSCORE;
+	return is_neighbor_open(row, col);
 }
 
 /***************************************************************************
@@ -1435,38 +1320,27 @@ static void cleardeadpipes(void)
  ***************************************************************************/
 /* This fills one or several pipes at a time. */
 
-static void fillpipes(void)
+static SDL_bool fillpipes(void)
 {
-	int rowloop, colloop, count = 0;
-	int leakypipefound, nomorepipes;
+	SDL_bool done = SDL_FALSE;
 
-	/* Show all filled pipes onscreen for this passcounter */
-	leakypipefound = FALSE;
-	nomorepipes = TRUE;
-	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-		for (colloop = 0; colloop < BOARDW; colloop++) {
-			if (deadpipesarray[rowloop][colloop] == fillpipespasscounter || deadpipesarray[rowloop][colloop] - LEAKYPIPEVAL == fillpipespasscounter) {
-				/* Draw filled pipe. */
-				boardarray[rowloop][colloop].flags |= (CHANGED |
-								       FILLED);
-				count++;
-				redraw |= REDRAWPIPE;
-				/* When displaying the highscoreboard ignore scoring */
-				if (!disablescoring) {
-					score = score + FILLEDPIPESCORE;
-					redraw = redraw | REDRAWSCORE;
-				}
-				/* If a leaky pipe is found then flag it */
-				if (deadpipesarray[rowloop][colloop] >= FILLEDCOUNTERBASE + LEAKYPIPEVAL) leakypipefound = TRUE;
-			} else {
-				if (deadpipesarray[rowloop][colloop] > fillpipespasscounter && deadpipesarray[rowloop][colloop] < DEADPIPEVAL) nomorepipes = FALSE;
-			}
-		}
+	if (!(boardarray[start_row][start_col].flags & FILLED))
+		return fill_pipe(start_row, start_col);
+
+	FOREACH_TILE(row, col) {
+		if ((boardarray[row][col].flags & CONNECTED) &&
+		    (!(boardarray[row][col].flags & FILLED)) &&
+		    (check_neighbors(row, col, FILLED)))
+			boardarray[row][col].flags |= FILLING;
 	}
 
-	fillpipespasscounter++;
+	FOREACH_TILE(row, col) {
+		if (boardarray[row][col].flags & FILLING)
+			done |= fill_pipe(row, col);
+	}
 
-	if (leakypipefound || nomorepipes) {
+	if (done) {
+		int rowloop, colloop;
 		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
 		if (!disablescoring && score > highscoretable[0]) {
 			highscoretable[0] = score;
@@ -1478,11 +1352,11 @@ static void fillpipes(void)
 			}
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
-			save_rc_file();	/* This saves the new highscore[s] */
-		} else {
-			game_mode = GAMEOVER;
+			save_rc_file(); /* This saves the new highscore[s] */
+			return SDL_FALSE;
 		}
 	}
+	return done;
 }
 
 /***************************************************************************

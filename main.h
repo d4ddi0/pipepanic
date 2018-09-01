@@ -99,6 +99,11 @@ enum game_mode {
 #define EAST  (1 << 1)
 #define SOUTH (1 << 2)
 #define WEST  (1 << 3)
-#define CONNECTED_TO_SOURCE (1 << 4)
+#define CONNECTED (1 << 4)
 #define FILLED (1 << 5)
 #define CHANGED (1 << 6)
+#define FILLING (1 << 7)
+
+#define FOREACH_TILE(row, col) \
+	for (int row = 0; row < BOARDH; ++row) \
+		for (int col = 0; col < BOARDW; ++col)
