@@ -77,7 +77,6 @@ static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
 static const int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,13,13,13,13,5,5,11,11,11,12,15,15,14,13,14,13,12,15,14,6,12,15,12,16,14,16,13,16,14,14,14,14,15,19,13,13,14,8,6,8,11,10,6,13,12,13,12,13,8,13,11,6,6,12,6,17,11,13,12,12,8,12,9,11,12,18,13,12,11,8,4,8,11};
 
 /* Function prototypes */
-static int get_machine_id(void);
 static int load_bitmaps(SDL_bool small);
 static void draw_game(void);
 static void draw_digits(int value, SDL_Rect *label, int len);
@@ -123,7 +122,6 @@ int main(int argc, char *argv[])
 	srand((unsigned) time(NULL));	/* Seed C's random number generator */
 
 	user_home_dir = getenv("HOME");
-	if (get_machine_id()) return 1;	/* This sets up the screen and tile sizes. */
 	read_rc_file();	/* This gets the saved highscore[s] */
 
 	/* Process any command line arguments. These will override any found in the resource file. */
@@ -282,36 +280,6 @@ static void initialize_drawables(int w, int h)
 	redraw = (helppage)? REDRAWHELP | REDRAWALL : REDRAWALL;
 	draw_game();
 	SDL_RenderPresent(rrr);
-}
-
-/***************************************************************************
- * Get Machine ID                                                          *
- ***************************************************************************/
-/* This looks for the file /proc/deviceinfo/product which exists on the
-   Zaurus and not the PC and then sets the screen resolution accordingly.
-   On exit: returns 1 if file found but product unknown else 0. */
-
-static int get_machine_id(void)
-{
-	char buffer[256];
-	int returnval = 0;
-	FILE *file = fopen( "/proc/deviceinfo/product", "r" );
-
-	if (file && fgets(buffer, 255, file)) {
-		if (!strncmp(buffer, "SL-5", 4)) {
-			xres = 240; yres = 320;
-		} else if (!strncmp(buffer, "SL-C", 4)) {
-			xres = 640; yres = 480;
-		} else if (!strncmp(buffer, "SL-6", 4)) {
-			xres = 480; yres = 640;
-		} else {
-			printf("product=%s\n", buffer);
-			printf("Unknown Zaurus model! Please email me the product shown above.\n");
-			returnval = 1;
-		}
-		fclose (file);
-	}
-	return returnval;
 }
 
 /***************************************************************************
@@ -1424,5 +1392,3 @@ static void save_rc_file(void)
 
 	fclose(file);
 }
-
-
