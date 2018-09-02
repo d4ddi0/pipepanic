@@ -450,19 +450,14 @@ static void setup_mouse()
 
 static void setup_gameboard(void)
 {
-	int row, column, x, y;
+	int y = (xres == 240 || xres == 480)? 2 * tileh : 0;
+	int x = xres - BOARDW * tilew;
 
-	y = (xres == 240 || xres == 480)? 2 * tileh : 0;
-	for (row = 0; row < BOARDH; row++) {
-		x = xres - BOARDW * tilew;
-		for (column = 0; column < BOARDW; column++) {
-			tile_rects[row][column].w = tilew;
-			tile_rects[row][column].h = tileh;
-			tile_rects[row][column].x = x;
-			tile_rects[row][column].y = y;
-			x += tilew;
-		}
-		y += tileh;
+	FOREACH_TILE(row, col) {
+		tile_rects[row][col].w = tilew;
+		tile_rects[row][col].h = tileh;
+		tile_rects[row][col].x = x + tilew * col;
+		tile_rects[row][col].y = y + tileh * row;
 	}
 
 	setup_preview_rects();
@@ -628,7 +623,7 @@ static void draw_tile(int row, int col, SDL_bool force)
 static void draw_game(void)
 {
 	SDL_Rect src, dest;
-	int row, column, x, y;
+	int x, y;
 
 	if ((redraw & REDRAWBOARD) == REDRAWBOARD) {
 		/* Paint the whole screen yellow. */
@@ -638,11 +633,8 @@ static void draw_game(void)
 		/* Draw all the game board background tiles. */
 		src.x = 4 * tilew; src.y = 6 * tileh;
 		src.w = tilew; src.h = tileh;
-		for (row = 0; row < BOARDH; row++) {
-			for (column = 0; column < BOARDW; column++) {
-				blit(tiles, &src, &tile_rects[row][column]);
-			}
-		}
+		FOREACH_TILE(row, col)
+			blit(tiles, &src, &tile_rects[row][col]);
 
 		/* Draw all the text. */
 		/* High Score. */
@@ -677,11 +669,8 @@ static void draw_game(void)
 	}
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
-		for (row = 0; row < BOARDH; row++) {
-			for (column = 0; column < BOARDW; column++) {
-				draw_tile(row, column, SDL_TRUE);
-			}
-		}
+		FOREACH_TILE(row, col)
+			draw_tile(row, col, SDL_TRUE);
 	}
 	if ((redraw & REDRAWHIGHSCORE) == REDRAWHIGHSCORE) {
 		/* The top high score */
@@ -711,12 +700,8 @@ static void draw_game(void)
 		draw_preview();
 	}
 	if (redraw & REDRAWPIPE) {
-		for (int row = 0; row < BOARDH; ++row) {
-			for (int col = 0; col < BOARDW; ++col) {
-				draw_tile(row, col, SDL_FALSE);
-
-			}
-		}
+		FOREACH_TILE(row, col)
+			draw_tile(row, col, SDL_FALSE);
 	}
 
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
@@ -825,8 +810,6 @@ static void draw_digits(int value, SDL_Rect *label, int len) {
 
 static void initialise_new_game(void)
 {
-	int rowloop, colloop, count;
-
 	game_mode = GAMEON;
 	redraw = REDRAWALL;
 	score = 0;
@@ -835,15 +818,13 @@ static void initialise_new_game(void)
 	gametime = GAMETIME;
 
 	/* Clear the game board array */
-	for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-		for (colloop = 0; colloop < BOARDW; colloop++) {
-			boardarray[rowloop][colloop].pipe = NULLPIPEVAL;
-			boardarray[rowloop][colloop].flags = 0;
-		}
+	FOREACH_TILE(row, col) {
+		boardarray[row][col].pipe = NULLPIPEVAL;
+		boardarray[row][col].flags = 0;
 	}
 
 	/* Setup and initialise preview pieces/array. */
-	for (count = 0; count < PREVIEWARRAYSIZE; count++) {
+	for (int count = 0; count < PREVIEWARRAYSIZE; count++) {
 		previewarray[count] = getnextpipepiece();
 	}
 
@@ -1128,12 +1109,10 @@ static SDL_bool is_neighbor_open(int row, int col)
 
 static void set_pipe_directions(void)
 {
-	for (int row = 0; row < BOARDH; row++) {
-		for (int col = 0; col < BOARDW; ++col) {
-			struct gametile *tile = &boardarray[row][col];
-			tile->flags &= ~(NORTH | EAST | SOUTH | WEST);
-			tile->flags |= get_pipe_directions(tile->pipe);
-		}
+	FOREACH_TILE(row, col) {
+		struct gametile *tile = &boardarray[row][col];
+		tile->flags &= ~(NORTH | EAST | SOUTH | WEST);
+		tile->flags |= get_pipe_directions(tile->pipe);
 	}
 }
 
@@ -1265,17 +1244,16 @@ static void manage_help_input(int input)
 
 static void cleardeadpipes(void)
 {
-	for (int row = 0; row < BOARDH; ++row) {
-		for (int col = 0; col < BOARDW; ++col) {
-			struct gametile *tile = &boardarray[row][col];
-			if ((tile->pipe != NULLPIPEVAL) &&
-			    (!(tile->flags & CONNECTED))) {
-				tile->pipe = NULLPIPEVAL;
-				tile->flags = CHANGED;
-				score += DEADPIPESCORE;
-				redraw |= REDRAWPIPE | REDRAWSCORE;
-				return; /* return immedaitely */
-			}
+	FOREACH_TILE(row, col) {
+		struct gametile *tile = &boardarray[row][col];
+
+		if ((tile->pipe != NULLPIPEVAL) &&
+		    (!(tile->flags & CONNECTED))) {
+			tile->pipe = NULLPIPEVAL;
+			tile->flags = CHANGED;
+			score += DEADPIPESCORE;
+			redraw |= REDRAWPIPE | REDRAWSCORE;
+			return; /* return immedaitely */
 		}
 	}
 
@@ -1348,16 +1326,13 @@ static SDL_bool fillpipes(void)
 	}
 
 	if (done) {
-		int rowloop, colloop;
 		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
 		if (!disablescoring && score > highscoretable[0]) {
 			highscoretable[0] = score;
 			/* Copy the board into the highscoreboard */
-			for (rowloop = 0; rowloop < BOARDH; rowloop++) {
-				for (colloop = 0; colloop < BOARDW; colloop++) {
-					highscoreboard[0][rowloop * BOARDH + colloop] = boardarray[rowloop][colloop].pipe;
-				}
-			}
+			FOREACH_TILE(row, col)
+				highscoreboard[0][row * BOARDH + col] = boardarray[row][col].pipe;
+
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
 			save_rc_file(); /* This saves the new highscore[s] */
