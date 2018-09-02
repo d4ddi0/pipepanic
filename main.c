@@ -1158,6 +1158,24 @@ static void place_pipe(int row, int column)
 	redraw |= REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
 }
 
+static void load_highscore(void)
+{
+	/* Process High Score clicks */
+	initialise_new_game();
+	/* Copy the highscoreboard into the board array */
+	FOREACH_TILE(row, col) {
+		int pipe = highscoreboard[0][row * BOARDH + col];
+		boardarray[row][col].pipe = pipe;
+		if (pipe == PIPESTART) {
+			start_row = row;
+			start_col = col;
+		}
+	}
+	gametime = 0;
+	disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
+	game_mode = GAMEFINISH;
+}
+
 static void manage_mouse_input(void)
 {
 	int mbut, mx, my;
@@ -1202,17 +1220,7 @@ static void manage_mouse_input(void)
 	} else if (mouse_event_in_rect(mx, my, &new_game_label)) {
 		game_mode = GAMESTART;
 	} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
-		/* Process High Score clicks */
-		initialise_new_game();
-		/* Copy the highscoreboard into the board array */
-		for (int row = 0; row < BOARDH; row++) {
-			for (int col = 0; col < BOARDW; col++) {
-				boardarray[row][col].pipe = highscoreboard[0][row * BOARDH + col];
-			}
-		}
-		gametime = 0;
-		disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
-		game_mode = GAMEFINISH;
+		load_highscore();
 	} else if (mouse_event_in_rect(mx, my, &help_label)) {
 		/* Process Help clicks */
 		helppage = 1; /* enter help mode */
