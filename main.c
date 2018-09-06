@@ -19,6 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 /* Includes */
 #include <SDL2/SDL.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -42,7 +43,7 @@ static int digitw = 30;
 static int digith = 48;
 static int asciiw = 30;
 static int asciih = 30;
-static int sdl_fullscreen = FALSE;
+static int sdl_fullscreen = 0;
 static SDL_Window *win;
 static SDL_Renderer *rrr;
 static SDL_Texture *digits;
@@ -56,7 +57,7 @@ static int redraw = REDRAWALL;
 static int highscoretable[5] = {0, 0, 0, 0, 0};
 static int highscoreboard[5][BOARDH * BOARDW];
 static int score = 0;
-static int disablescoring = FALSE;
+static bool disablescoring = false;
 static int gametime = GAMETIME;
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
@@ -68,7 +69,7 @@ static SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
 	help_exit_label, hiscoredigits[4], timedigits[3], scoredigits[4],
 	preview_rects[PREVIEWARRAYSIZE];
-static int flashhighscorestate = FALSE;
+static bool flashhighscorestate = false;
 static int helppage = 0;
 static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
 	     HELPPAGE3, HELPPAGE4, HELPPAGE5};
@@ -77,7 +78,7 @@ static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
 static const int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,13,13,13,13,5,5,11,11,11,12,15,15,14,13,14,13,12,15,14,6,12,15,12,16,14,16,13,16,14,14,14,14,15,19,13,13,14,8,6,8,11,10,6,13,12,13,12,13,8,13,11,6,6,12,6,17,11,13,12,12,8,12,9,11,12,18,13,12,11,8,4,8,11};
 
 /* Function prototypes */
-static int load_bitmaps(SDL_bool small);
+static int load_bitmaps(bool small);
 static void draw_game(void);
 static void draw_digits(int value, SDL_Rect *label, int len);
 static void initialise_new_game(void);
@@ -85,10 +86,10 @@ static void manage_user_input(void);
 static int getnextpipepiece(void);
 static void fillpipearray(void);
 static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
-static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled);
+static void get_pipe_src(int pipeid, SDL_Rect *rect, bool filled);
 static void set_pipe_directions(void);
 static void cleardeadpipes(void);
-static SDL_bool fillpipes(void);
+static bool fillpipes(void);
 static void read_rc_file(void);
 static void save_rc_file(void);
 static void draw_ascii(const char *const text, int xpos, int ypos);
@@ -244,34 +245,34 @@ int main(int argc, char *argv[])
 
 static void initialize_drawables(int w, int h)
 {
-	SDL_bool small;
+	bool small;
 
         if (h >= w && h >= 640 && w >= 480) {
 		/* Large portrait oriented */
 		yres = 640;
 		xres = 480;
-		small = SDL_FALSE;
+		small = false;
 	} else if (w > h && w >= 640 && h >= 480) {
 		/* Large landscape oriented */
 		xres = 640;
 		yres = 480;
-		small = SDL_FALSE;
+		small = false;
 	} else if (h >= w && h >= 320 && w >= 240) {
 		/* Small portrait oriented */
 		yres = 320;
 		xres = 240;
-		small = SDL_TRUE;
+		small = true;
 	} else if (w > h && w >= 320 && h >= 240) {
 		/* Small landscape oriented */
 		xres = 320;
 		yres = 240;
-		small = SDL_TRUE;
+		small = true;
 	} else {
 		/* invalid. do not resize yet */
 		return;
 	}
 
-	SDL_RenderSetIntegerScale(rrr, SDL_TRUE);
+	SDL_RenderSetIntegerScale(rrr, true);
 	SDL_RenderSetLogicalSize(rrr, xres, yres);
 	if (load_bitmaps(small))
 		exit(1);
@@ -332,10 +333,10 @@ static int load_bitmap(SDL_Texture **tex, const char *fname, Uint32
 	return 0;
 }
 
-static int load_bitmaps(SDL_bool small)
+static int load_bitmaps(bool small)
 {
 	const char *digitsfile, *tilesfile, *asciifile;
-	static SDL_bool is_small = SDL_FALSE;
+	static bool is_small = false;
 
 	if (small == is_small && digits)
 		return 0;
@@ -359,9 +360,9 @@ static int load_bitmaps(SDL_bool small)
 	if (load_bitmap(&digits, digitsfile, 0, 0, 0, 0) != 0)
 		return 1;
 
-	if (load_bitmap(&tiles, tilesfile, SDL_TRUE, MAGENTA) != 0)
+	if (load_bitmap(&tiles, tilesfile, true, MAGENTA) != 0)
 		return 1;
-	if (load_bitmap(&ascii, asciifile, SDL_TRUE, WHITE) != 0)
+	if (load_bitmap(&ascii, asciifile, true, WHITE) != 0)
 		return 1;
 
 	return 0;
@@ -557,12 +558,12 @@ static void draw_preview(void)
 		src.w = tilew;
 		src.h = tileh;
 		blit(tiles, &src, &preview_rects[i]);
-		get_pipe_src(previewarray[2 - i], &src, FALSE);
+		get_pipe_src(previewarray[2 - i], &src, false);
 		blit(tiles, &src, &preview_rects[i]);
 	}
 }
 
-static void draw_tile(int row, int col, SDL_bool force)
+static void draw_tile(int row, int col, bool force)
 {
 	struct gametile *tile = &boardarray[row][col];
 
@@ -638,11 +639,11 @@ static void draw_game(void)
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
 		FOREACH_TILE(row, col)
-			draw_tile(row, col, SDL_TRUE);
+			draw_tile(row, col, true);
 	}
 	if ((redraw & REDRAWHIGHSCORE) == REDRAWHIGHSCORE) {
 		/* The top high score */
-		/* If flashhighscorestate is TRUE then no score is shown
+		/* If flashhighscorestate is true then no score is shown
 		   (it is blanked out with the background colour). */
 		if (flashhighscorestate) {
 			dest.w = 5 * digitw; dest.h = digith;
@@ -669,7 +670,7 @@ static void draw_game(void)
 	}
 	if (redraw & REDRAWPIPE) {
 		FOREACH_TILE(row, col)
-			draw_tile(row, col, SDL_FALSE);
+			draw_tile(row, col, false);
 	}
 
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
@@ -781,8 +782,8 @@ static void initialise_new_game(void)
 	game_mode = GAMEON;
 	redraw = REDRAWALL;
 	score = 0;
-	disablescoring = FALSE;
-	flashhighscorestate = FALSE;
+	disablescoring = false;
+	flashhighscorestate = false;
 	gametime = GAMETIME;
 
 	/* Clear the game board array */
@@ -881,7 +882,7 @@ static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer)
 /* This translates a number identifying a pipe into x and y coordinates
    into the tiles texture. */
 
-static void get_pipe_src(int pipeid, SDL_Rect *rect, SDL_bool filled)
+static void get_pipe_src(int pipeid, SDL_Rect *rect, bool filled)
 {
 	if (pipeid > 16) {
 		printf("%s: Invalid pipe: %i\n", __func__, pipeid);
@@ -1054,25 +1055,25 @@ static void mark_neighbors(int row, int col, int flags)
 /**
  * return true if the tile has any open ends
  */
-static SDL_bool is_neighbor_open(int row, int col)
+static bool is_neighbor_open(int row, int col)
 {
 	if ((row > 0) && (boardarray[row][col].flags & NORTH) &&
 	    (!(boardarray[row -1][col].flags & SOUTH)))
-		return SDL_TRUE;
+		return true;
 
 	if ((row > 0) && (boardarray[row][col].flags & EAST) &&
 	    (!(boardarray[row][col + 1].flags & WEST)))
-		return SDL_TRUE;
+		return true;
 
 	if ((row > 0) && (boardarray[row][col].flags & SOUTH) &&
 	    (!(boardarray[row + 1][col].flags & NORTH)))
-		return SDL_TRUE;
+		return true;
 
 	if ((row > 0) && (boardarray[row][col].flags & WEST) &&
 	    (!(boardarray[row][col - 1].flags & EAST)))
-		return SDL_TRUE;
+		return true;
 
-	return SDL_FALSE;
+	return false;
 }
 
 static void set_pipe_directions(void)
@@ -1119,7 +1120,7 @@ static void load_highscore(void)
 		}
 	}
 	gametime = 0;
-	disablescoring = TRUE;	/* This is only used here to prevent the score from incrementing whilst filling. */
+	disablescoring = true;	/* This is only used here to prevent the score from incrementing whilst filling. */
 	game_mode = GAMEFINISH;
 }
 
@@ -1230,36 +1231,36 @@ static void cleardeadpipes(void)
 
 
 /**
- * return SDL_TRUE if  any neighbors has flags marked
+ * return true if  any neighbors has flags marked
  */
-static SDL_bool check_neighbors(int row, int col, int flags)
+static bool check_neighbors(int row, int col, int flags)
 {
 	struct gametile *tile = &boardarray[row][col];
 
 	if ((row > 0 && tile->flags & NORTH) &&
 	    (boardarray[row -1][col].flags & SOUTH) &&
 	    (boardarray[row -1][col].flags & flags))
-		return SDL_TRUE;
+		return true;
 
 	if ((col < (BOARDW - 1) && tile->flags & EAST) &&
 	    (boardarray[row][col + 1].flags & WEST) &&
 	    (boardarray[row][col + 1].flags & flags))
-		return SDL_TRUE;
+		return true;
 
 	if ((row < (BOARDH - 1) && tile->flags & SOUTH) &&
 	    (boardarray[row + 1][col].flags & NORTH) &&
 	    (boardarray[row + 1][col].flags & flags))
-		return SDL_TRUE;
+		return true;
 
 	if ((col > 0 && tile->flags & WEST) &&
 	    (boardarray[row][col - 1].flags & EAST) &&
 	    (boardarray[row][col - 1].flags & flags))
-		return SDL_TRUE;
+		return true;
 
-	return SDL_FALSE;
+	return false;
 }
 
-static SDL_bool fill_pipe(int row, int col)
+static bool fill_pipe(int row, int col)
 {
 	boardarray[row][col].flags &= ~FILLING;
 	boardarray[row][col].flags |= (FILLED | CHANGED);
@@ -1274,9 +1275,9 @@ static SDL_bool fill_pipe(int row, int col)
  ***************************************************************************/
 /* This fills one or several pipes at a time. */
 
-static SDL_bool fillpipes(void)
+static bool fillpipes(void)
 {
-	SDL_bool done = SDL_FALSE;
+	bool done = false;
 
 	if (!(boardarray[start_row][start_col].flags & FILLED))
 		return fill_pipe(start_row, start_col);
@@ -1304,7 +1305,7 @@ static SDL_bool fillpipes(void)
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
 			save_rc_file(); /* This saves the new highscore[s] */
-			return SDL_FALSE;
+			return false;
 		}
 	}
 	return done;
