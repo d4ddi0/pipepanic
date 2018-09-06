@@ -7,7 +7,7 @@ CC=gcc
 CFLAGS=-O2 -Wall -pedantic $(shell sdl2-config --cflags)
 LINK=gcc
 LDFLAGS=
-LIBS=$(shell sdl2-config --libs)
+LDLIBS=$(shell sdl2-config --libs)
 ifneq (,$(DEBUG))
 	CFLAGS += -g -DDEBUG
 endif
@@ -15,7 +15,7 @@ endif
 
 all:
 	$(CC) $(CFLAGS) -c $(SOURCES)
-	$(LINK) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(TARGET)
+	$(LINK) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $(TARGET)
 
 .PHONY: clean
 
