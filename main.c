@@ -1260,8 +1260,17 @@ static bool check_neighbors(int row, int col, int flags)
 	return false;
 }
 
+static bool ooze(int row, int col)
+{
+	return true;
+}
+
+
 static bool fill_pipe(int row, int col)
 {
+	if (!(ooze(row, col)))
+	    return false;
+
 	boardarray[row][col].flags &= ~FILLING;
 	boardarray[row][col].flags |= (FILLED | CHANGED);
 	if (!disablescoring)
