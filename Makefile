@@ -1,7 +1,3 @@
-SOURCES=main.c
-OBJECTS=main.o
-TARGET=pipepanic
-
 # Settings for x86.
 CC=gcc
 CFLAGS=-O2 -Wall -pedantic $(shell sdl2-config --cflags)
@@ -13,9 +9,11 @@ ifneq (,$(DEBUG))
 endif
 
 
-all:
-	$(CC) $(CFLAGS) -c $(SOURCES)
-	$(LINK) $(LDFLAGS) $(OBJECTS) $(LDLIBS) -o $(TARGET)
+all: pipepanic
+
+
+pipepanic: main.o
+	$(LINK) $(LDFLAGS) $< $(LDLIBS) -o $@
 
 .PHONY: clean
 

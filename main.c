@@ -1260,8 +1260,71 @@ static bool check_neighbors(int row, int col, int flags)
 	return false;
 }
 
+#define ALPHA(n) ((n) << 24)
+#define ALPHAMASK (ALPHA(255))
+#define ALPHAHALF (ALPHA(127))
+#define RGBMASK (~ALPHAMASK)
+
+static uint32_t *pixelbuf;
+static SDL_texture *oozetex;
+
+static void primeneighbor(uint32_t *neighbor)
+{
+	uint32_t ntmp = *neighbor;
+
+	if ((0 != (ntmp & RGBMASK)) && (0 != (ntmp & ALPHAMASK)))
+		*neighbor = (ntmp & ~ALPHAHALF);
+}
+
+bool expand_one_pixel(void)
+{
+	static int n;
+
+	for (int y = 1; y < tileh - 1; ++y) {
+		for (int x = 1; x < tilew - 1; ++x) {
+			uint32_t *pixel = pixelbuf + x + y * tileh;
+
+			if (0 == (*pixel & ALPHAMASK)) {
+				primeneighbor(pixel - tileh);
+				primeneighbor(pixel + 1);
+				primeneighbor(pixel + tileh);
+				primeneighbor(pixel - 1);
+			}
+		}
+	}
+
+	for (int y = 0; y < tileh; ++y) {
+		for (int x = 0; x < tilew; ++x) {
+			uint32_t *pixel = pixelbuf + x + y * tileh;
+
+			if ((*pixel & ALPHAMASK) == ALPHAHALF) {
+				n++;
+				printf("found one: %d\n", n);
+				*pixel = 0;
+			}
+		}
+	}
+	printf("there are %d prime pixels\n", n);
+	return !!n;
+}
+
 static bool ooze(int row, int col)
 {
+	if (!pixelbuf) {
+		pixelbuf = malloc(tileh * tilew * sizeof(uint32_t));
+		oozetex = SDL_CreateTexture(rrr, SDL_PIXELFORMAT_RGBA32,
+					    SDL_TEXTUREACCESS_STATIC,
+					    tilew, tileh);
+	}
+
+
+
+	SDL_RenderReadPixels(rrr, &tile_rects[row][col], SDL_PIXELFORMAT_RGBA32,
+			     pixelbuf, tilew * sizeof(uint32_t));
+
+	while (expand_one_pixel())
+		continue;
+
 	return true;
 }
 
