@@ -1266,25 +1266,28 @@ static bool check_neighbors(int row, int col, int flags)
 #define RGBMASK (~ALPHAMASK)
 
 static uint32_t *pixelbuf;
-static SDL_texture *oozetex;
+static SDL_Texture *oozetex;
 
 static void primeneighbor(uint32_t *neighbor)
 {
 	uint32_t ntmp = *neighbor;
 
-	if ((0 != (ntmp & RGBMASK)) && (0 != (ntmp & ALPHAMASK)))
+	if ((0 != (ntmp & RGBMASK)) && (0 != (ntmp & ALPHAMASK))) {
+		ntmp = (ntmp & ~ALPHAHALF);
+//		printf("before: %x, after: %x\n", *neighbor, ntmp);
 		*neighbor = (ntmp & ~ALPHAHALF);
+	}
 }
 
 bool expand_one_pixel(void)
 {
-	static int n;
+	int numpixels = 0;
 
 	for (int y = 1; y < tileh - 1; ++y) {
 		for (int x = 1; x < tilew - 1; ++x) {
 			uint32_t *pixel = pixelbuf + x + y * tileh;
 
-			if (0 == (*pixel & ALPHAMASK)) {
+			if (ALPHAMASK == *pixel) {
 				primeneighbor(pixel - tileh);
 				primeneighbor(pixel + 1);
 				primeneighbor(pixel + tileh);
@@ -1293,19 +1296,20 @@ bool expand_one_pixel(void)
 		}
 	}
 
-	for (int y = 0; y < tileh; ++y) {
-		for (int x = 0; x < tilew; ++x) {
-			uint32_t *pixel = pixelbuf + x + y * tileh;
+	uint32_t *end = pixelbuf + (tileh * tilew);
+	for (uint32_t *pixel = pixelbuf; pixel < end; pixel++) {
+//			printf("pixel: %x ALPHAMASK %x ALPHAHALF %x\n", *pixel,
+//			       ALPHAMASK, ALPHAHALF);
 
-			if ((*pixel & ALPHAMASK) == ALPHAHALF) {
-				n++;
-				printf("found one: %d\n", n);
-				*pixel = 0;
-			}
+		if (((*pixel) & ALPHAMASK) == ALPHAHALF) {
+			printf("before: %x, after: %x\n", *pixel, ((*pixel) & ALPHAMASK));
+			numpixels++;
+			printf("found one: %d\n", numpixels);
+			*pixel = 0;
 		}
 	}
-	printf("there are %d prime pixels\n", n);
-	return !!n;
+	printf("there are %d prime pixels\n", numpixels);
+	return !!numpixels;
 }
 
 static bool ooze(int row, int col)
@@ -1319,11 +1323,16 @@ static bool ooze(int row, int col)
 
 
 
-	SDL_RenderReadPixels(rrr, &tile_rects[row][col], SDL_PIXELFORMAT_RGBA32,
-			     pixelbuf, tilew * sizeof(uint32_t));
+	if (SDL_RenderReadPixels(rrr, ,
+				 SDL_PIXELFORMAT_RGBA32, pixelbuf,
+				 tilew * sizeof(uint32_t)))
+		printf("SDL_RenderReadPixels failed: %s\n", SDL_GetError());
 
-	while (expand_one_pixel())
-		continue;
+	*pixelbuf = 0;
+	while (expand_one_pixel()) {
+		SDL_RenderCopy(rrr, oozetex, NULL, &tile_rects[row][col]);
+		SDL_Delay(100);
+	}
 
 	return true;
 }
