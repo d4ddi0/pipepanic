@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 struct gametile {
 	int pipe;
 	int flags;
+	int fill;
 };
 
 /* Variable declarations */
@@ -578,7 +579,7 @@ static void draw_tile(int row, int col, bool force)
 	src.h = tileh;
 	blit(tiles, &src, &tile_rects[row][col]);
 	if (tile->pipe != NULLPIPEVAL) {
-		get_pipe_src(tile->pipe, &src, tile->flags & FILLED);
+		get_pipe_src(tile->pipe, &src, tile->fill);
 		blit(tiles, &src, &tile_rects[row][col]);
 		tile->flags &= ~CHANGED;
 	}
@@ -790,6 +791,7 @@ static void initialise_new_game(void)
 	FOREACH_TILE(row, col) {
 		boardarray[row][col].pipe = NULLPIPEVAL;
 		boardarray[row][col].flags = 0;
+		boardarray[row][col].fill = 0;
 	}
 
 	/* Setup and initialise preview pieces/array. */
@@ -1229,45 +1231,51 @@ static void cleardeadpipes(void)
 	game_mode = GAMEFILLPIPES;
 }
 
+static void start_fill(struct gametile *tile)
+{
+	tile->fill = 1;
+}
 
 /**
  * return true if  any neighbors has flags marked
  */
-static bool check_neighbors(int row, int col, int flags)
+static void check_neighbors(int row, int col)
 {
 	struct gametile *tile = &boardarray[row][col];
 
 	if ((row > 0 && tile->flags & NORTH) &&
 	    (boardarray[row -1][col].flags & SOUTH) &&
-	    (boardarray[row -1][col].flags & flags))
-		return true;
+	    (boardarray[row -1][col].fill >= CAPACITY))
+		start_fill(tile);
 
 	if ((col < (BOARDW - 1) && tile->flags & EAST) &&
 	    (boardarray[row][col + 1].flags & WEST) &&
-	    (boardarray[row][col + 1].flags & flags))
-		return true;
+	    (boardarray[row][col + 1].fill >= CAPACITY))
+		start_fill(tile);
 
 	if ((row < (BOARDH - 1) && tile->flags & SOUTH) &&
 	    (boardarray[row + 1][col].flags & NORTH) &&
-	    (boardarray[row + 1][col].flags & flags))
-		return true;
+	    (boardarray[row + 1][col].fill >= CAPACITY))
+		start_fill(tile);
 
 	if ((col > 0 && tile->flags & WEST) &&
 	    (boardarray[row][col - 1].flags & EAST) &&
-	    (boardarray[row][col - 1].flags & flags))
-		return true;
-
-	return false;
+	    (boardarray[row][col - 1].fill >= CAPACITY))
+		start_fill(tile);
 }
 
 static bool fill_pipe(int row, int col)
 {
-	boardarray[row][col].flags &= ~FILLING;
-	boardarray[row][col].flags |= (FILLED | CHANGED);
-	if (!disablescoring)
-		score += FILLEDPIPESCORE;
+	boardarray[row][col].flags |= CHANGED;
 	redraw |= REDRAWPIPE | REDRAWSCORE;
-	return is_neighbor_open(row, col);
+	boardarray[row][col].fill++;
+
+	if (boardarray[row][col].fill >= CAPACITY && !disablescoring) {
+		score += FILLEDPIPESCORE;
+		return is_neighbor_open(row, col);
+	} else {
+		return false;
+	}
 }
 
 /***************************************************************************
@@ -1278,19 +1286,18 @@ static bool fill_pipe(int row, int col)
 static bool fillpipes(void)
 {
 	bool done = false;
-
-	if (!(boardarray[start_row][start_col].flags & FILLED))
-		return fill_pipe(start_row, start_col);
+	if (!(boardarray[start_row][start_col].fill))
+		start_fill(&boardarray[start_row][start_col]);
 
 	FOREACH_TILE(row, col) {
 		if ((boardarray[row][col].flags & CONNECTED) &&
-		    (!(boardarray[row][col].flags & FILLED)) &&
-		    (check_neighbors(row, col, FILLED)))
-			boardarray[row][col].flags |= FILLING;
+		    (!boardarray[row][col].fill))
+			check_neighbors(row, col);
 	}
 
 	FOREACH_TILE(row, col) {
-		if (boardarray[row][col].flags & FILLING)
+		if ((boardarray[row][col].fill) &&
+		    (boardarray[row][col].fill < CAPACITY))
 			done |= fill_pipe(row, col);
 	}
 
