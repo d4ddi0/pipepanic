@@ -62,12 +62,12 @@ enum game_mode {
 #define PREVIEWARRAYSIZE 3
 #define POINTSARRAYSIZE 75
 
+#define CAPACITY (2)
 #define PIPESTART (0)
 #define PIPEEND (1)
 #define LEAKYPIPEVAL +50
 #define NULLPIPEVAL 255
 #define DEADPIPEVAL 253
-#define FILLEDCOUNTERBASE 20
 
 #define PIPEOVERWRITESCORE -10
 #define PIPEPLACEMENTSCORE 10
@@ -97,9 +97,7 @@ enum game_mode {
 #define SOUTH (1 << 2)
 #define WEST  (1 << 3)
 #define CONNECTED (1 << 4)
-#define FILLED (1 << 5)
-#define CHANGED (1 << 6)
-#define FILLING (1 << 7)
+#define CHANGED (1 << 5)
 
 #define FOREACH_TILE(row, col) \
 	for (int row = 0; row < BOARDH; ++row) \
