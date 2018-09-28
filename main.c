@@ -1061,15 +1061,15 @@ static bool is_neighbor_open(int row, int col)
 	    (!(boardarray[row -1][col].flags & SOUTH)))
 		return true;
 
-	if ((row > 0) && (boardarray[row][col].flags & EAST) &&
+	if ((col < (BOARDW - 1)) && (boardarray[row][col].flags & EAST) &&
 	    (!(boardarray[row][col + 1].flags & WEST)))
 		return true;
 
-	if ((row > 0) && (boardarray[row][col].flags & SOUTH) &&
+	if ((row < (BOARDH - 1)) && (boardarray[row][col].flags & SOUTH) &&
 	    (!(boardarray[row + 1][col].flags & NORTH)))
 		return true;
 
-	if ((row > 0) && (boardarray[row][col].flags & WEST) &&
+	if ((col > 0) && (boardarray[row][col].flags & WEST) &&
 	    (!(boardarray[row][col - 1].flags & EAST)))
 		return true;
 
