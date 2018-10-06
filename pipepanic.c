@@ -575,39 +575,55 @@ static void draw_preview(void)
 static void draw_partial_tile(int row, int col)
 {
 	SDL_Rect src, dest;
-	int xoffset, yoffset;
+	int offset;
 	const struct gametile *tile = &boardarray[row][col];
+	int unfilled = CAPACITY - tile->fill;
 
 	get_pipe_src(tile->pipe, &src, true);
-	src.w = SDL_sqrt(tilew * tilew * tile->fill / CAPACITY);
-	dest.h = dest.w = src.h = src.w;
+	blit(tiles, &src, &tile_rects[row][col]);
+	if (tile->fill >= CAPACITY)
+		return;
+
+	get_pipe_src(tile->pipe, &src, false);
+
 	switch (tile->flags & FILLDIRECTION_MASK) {
 	case FROM_NORTH:
-		xoffset = (tilew - src.w) >> 1;
-		yoffset = 0;
+		dest.w = src.w;
+		dest.h = src.h = unfilled * tileh / CAPACITY;
+		src.y += tileh - src.h;
+		dest.x = tile_rects[row][col].x;
+		dest.y = tile_rects[row][col].y + tileh - src.h;
 		break;
 	case FROM_EAST:
-		xoffset = tilew - src.w;
-		yoffset = (tileh - src.h) >> 1;
+		dest.w = src.w = unfilled * tilew / CAPACITY;
+		dest.h = src.h;
+		dest.x = tile_rects[row][col].x;
+		dest.y = tile_rects[row][col].y;
 		break;
 	case FROM_SOUTH:
-		xoffset = (tilew - src.w) >> 1;
-		yoffset = tilew - src.w;
+		dest.w = src.w;
+		dest.h = src.h = unfilled * tileh / CAPACITY;
+		dest.x = tile_rects[row][col].x;
+		dest.y = tile_rects[row][col].y;
 		break;
 	case FROM_WEST:
-		xoffset = 0;
-		yoffset = (tileh - src.h) >> 1;
+		dest.w = src.w = unfilled * tilew / CAPACITY;
+		dest.h = src.h;
+		src.x += tilew - src.w;
+		dest.x = tile_rects[row][col].x + tilew - src.w;
+		dest.y = tile_rects[row][col].y;
 		break;
 	default:
-		xoffset = 0;
-		yoffset = 0;
+		src.w = SDL_sqrt(tilew * tilew * unfilled / CAPACITY);
+		dest.h = dest.w = src.h = src.w;
+		offset = (tilew - src.w) >> 1;
+		src.x += offset;
+		src.y += offset;
+		dest.x = tile_rects[row][col].x + offset;
+		dest.y = tile_rects[row][col].y + offset;
 		break;
 
 	}
-	src.x += xoffset;
-	src.y += yoffset;
-	dest.x = tile_rects[row][col].x + xoffset;
-	dest.y = tile_rects[row][col].y + yoffset;
 
 	blit(tiles, &src, &dest);
 }
@@ -627,10 +643,11 @@ static void draw_tile(int row, int col, bool force)
 	src.h = tileh;
 	blit(tiles, &src, &tile_rects[row][col]);
 	if (tile->pipe != NULLPIPEVAL) {
-		get_pipe_src(tile->pipe, &src, false);
-		blit(tiles, &src, &tile_rects[row][col]);
 		if (tile->fill) {
 			draw_partial_tile(row, col);
+		} else {
+			get_pipe_src(tile->pipe, &src, false);
+			blit(tiles, &src, &tile_rects[row][col]);
 		}
 	}
 	tile->flags &= ~CHANGED;
