@@ -1413,34 +1413,6 @@ static void start_fill(struct gametile *tile, int direction,
 	tilering_push(fill_list, tile);
 }
 
-/**
- * return true if  any neighbors has flags marked
- */
-static void check_neighbors(int row, int col)
-{
-	struct gametile *tile = &boardarray[row][col];
-
-	if ((row > 0 && tile->flags & NORTH) &&
-	    (boardarray[row -1][col].flags & SOUTH) &&
-	    (boardarray[row -1][col].fill >= CAPACITY))
-		start_fill(tile);
-
-	if ((col < (BOARDW - 1) && tile->flags & EAST) &&
-	    (boardarray[row][col + 1].flags & WEST) &&
-	    (boardarray[row][col + 1].fill >= CAPACITY))
-		start_fill(tile);
-
-	if ((row < (BOARDH - 1) && tile->flags & SOUTH) &&
-	    (boardarray[row + 1][col].flags & NORTH) &&
-	    (boardarray[row + 1][col].fill >= CAPACITY))
-		start_fill(tile);
-
-	if ((col > 0 && tile->flags & WEST) &&
-	    (boardarray[row][col - 1].flags & EAST) &&
-	    (boardarray[row][col - 1].fill >= CAPACITY))
-		start_fill(tile);
-}
-
 static void start_filling_neighbors(int row, int col,
 				    struct tilering *fill_list)
 {
