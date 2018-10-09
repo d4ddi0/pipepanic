@@ -31,7 +31,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 
 struct gametile {
 	int pipe;
-	int flags;
+	unsigned int flags;
+	int row;
+	int col;
 	int fill;
 };
 
@@ -100,6 +102,11 @@ static void initialize_drawables(int w, int h);
 static void setup_gameboard(void);
 static void setup_img_src_rects(void);
 static void mark_neighbors(int row, int col, int flags);
+static struct gametile *get_north_neighbor(int row, int col);
+static struct gametile *get_east_neighbor(int row, int col);
+static struct gametile *get_south_neighbor(int row, int col);
+static struct gametile *get_west_neighbor(int row, int col);
+
 
 
 /***************************************************************************
@@ -223,7 +230,8 @@ int main(int argc, char *argv[])
 				if (fillpipes())
 					game_mode = GAMEOVER;
 				else
-					timeout = ticks + FILLPIPESTIMEOUT;
+					timeout = ticks + (FILLPIPESTIMEOUT /
+							   CAPACITY);
 				break;
 			case GAMEFLASHHIGHSCORE:
 				timeout = ticks + FLASHHIGHSCORETIMEOUT;
@@ -564,6 +572,46 @@ static void draw_preview(void)
 	}
 }
 
+static void draw_partial_tile(int row, int col)
+{
+	SDL_Rect src, dest;
+	int xoffset, yoffset;
+	const struct gametile *tile = &boardarray[row][col];
+
+	get_pipe_src(tile->pipe, &src, true);
+	src.w = SDL_sqrt(tilew * tilew * tile->fill / CAPACITY);
+	dest.h = dest.w = src.h = src.w;
+	switch (tile->flags & FILLDIRECTION_MASK) {
+	case FROM_NORTH:
+		xoffset = (tilew - src.w) >> 1;
+		yoffset = 0;
+		break;
+	case FROM_EAST:
+		xoffset = tilew - src.w;
+		yoffset = (tileh - src.h) >> 1;
+		break;
+	case FROM_SOUTH:
+		xoffset = (tilew - src.w) >> 1;
+		yoffset = tilew - src.w;
+		break;
+	case FROM_WEST:
+		xoffset = 0;
+		yoffset = (tileh - src.h) >> 1;
+		break;
+	default:
+		xoffset = 0;
+		yoffset = 0;
+		break;
+
+	}
+	src.x += xoffset;
+	src.y += yoffset;
+	dest.x = tile_rects[row][col].x + xoffset;
+	dest.y = tile_rects[row][col].y + yoffset;
+
+	blit(tiles, &src, &dest);
+}
+
 static void draw_tile(int row, int col, bool force)
 {
 	struct gametile *tile = &boardarray[row][col];
@@ -579,10 +627,13 @@ static void draw_tile(int row, int col, bool force)
 	src.h = tileh;
 	blit(tiles, &src, &tile_rects[row][col]);
 	if (tile->pipe != NULLPIPEVAL) {
-		get_pipe_src(tile->pipe, &src, tile->fill);
+		get_pipe_src(tile->pipe, &src, false);
 		blit(tiles, &src, &tile_rects[row][col]);
-		tile->flags &= ~CHANGED;
+		if (tile->fill) {
+			draw_partial_tile(row, col);
+		}
 	}
+	tile->flags &= ~CHANGED;
 }
 
 /***************************************************************************
@@ -792,6 +843,8 @@ static void initialise_new_game(void)
 		boardarray[row][col].pipe = NULLPIPEVAL;
 		boardarray[row][col].flags = 0;
 		boardarray[row][col].fill = 0;
+		boardarray[row][col].row = row;
+		boardarray[row][col].col = col;
 	}
 
 	/* Setup and initialise preview pieces/array. */
@@ -1054,6 +1107,42 @@ static void mark_neighbors(int row, int col, int flags)
 	}
 }
 
+static struct gametile *get_north_neighbor(int row, int col)
+{
+	if ((row > 0) && (boardarray[row][col].flags & NORTH) &&
+	    (boardarray[row -1][col].flags & SOUTH))
+		return &boardarray[row -1][col];
+
+	return NULL;
+}
+
+static struct gametile *get_east_neighbor(int row, int col)
+{
+	if ((col < (BOARDW - 1)) && (boardarray[row][col].flags & EAST) &&
+	    (boardarray[row][col + 1].flags & WEST))
+		return &boardarray[row][col + 1];
+
+	return NULL;
+}
+
+static struct gametile *get_south_neighbor(int row, int col)
+{
+	if ((row < (BOARDH - 1)) && (boardarray[row][col].flags & SOUTH) &&
+	    (boardarray[row + 1][col].flags & NORTH))
+		return &boardarray[row + 1][col];
+
+	return NULL;
+}
+
+static struct gametile *get_west_neighbor(int row, int col)
+{
+	if ((col > 0) && (boardarray[row][col].flags & WEST) &&
+	    (boardarray[row][col - 1].flags & EAST))
+		return &boardarray[row][col - 1];
+
+	return NULL;
+}
+
 /**
  * return true if the tile has any open ends
  */
@@ -1231,9 +1320,80 @@ static void cleardeadpipes(void)
 	game_mode = GAMEFILLPIPES;
 }
 
-static void start_fill(struct gametile *tile)
+struct tilering {
+	struct gametile **start;
+	struct gametile **end;
+	struct gametile **read;
+	struct gametile **write;
+};
+
+static void tilering_reset(struct tilering *ring)
 {
-	tile->fill = 1;
+	ring->write = ring->read = ring->start;
+	while (ring->write < ring->end) {
+		*ring->write = NULL;
+		ring->write++;
+	}
+	ring->write = ring->start;
+}
+
+static struct tilering *tilering_init(int size)
+{
+	struct tilering *ring = malloc(sizeof(struct tilering));
+	ring->start = malloc(size * sizeof(struct gametile *));
+	ring->end = ring->start + size;
+	tilering_reset(ring);
+	return ring;
+}
+
+/**
+ * return the next below capacity tile in the array.
+ * If a capacity tile is encountered, remove it from the array
+ * If no filling tile is below capacity, return NULL, at which
+ * point the game should end
+ */
+static struct gametile *tilering_read(struct tilering *ring)
+{
+	struct gametile **tmp_read = ring->read + 1;
+	while (tmp_read < ring->end) {
+		if (*tmp_read!= NULL) {
+			if ((*tmp_read)->fill >= CAPACITY) {
+				*tmp_read = NULL;
+			} else {
+			    ring->read = tmp_read;
+			    return *tmp_read;
+			}
+		}
+		tmp_read++;
+	}
+	tmp_read = ring->start;
+	while (tmp_read <= ring->read) {
+		if (*tmp_read != NULL) {
+			if ((*tmp_read)->fill >= CAPACITY) {
+				*tmp_read = NULL;
+			} else {
+			    ring->read = tmp_read;
+			    return *tmp_read;
+			}
+		}
+		tmp_read++;
+	}
+	return NULL;
+}
+
+static void tilering_push(struct tilering *ring, struct gametile *tile)
+{
+	*ring->write = tile;
+	ring->write++;
+	if (ring->write >= ring->end)
+		ring->write = ring->start;
+}
+
+static void start_fill(struct gametile *tile, int direction,
+		       struct tilering *fill_list)
+{
+	tile->flags |= (direction << FILLDIRECTION);
+	tilering_push(fill_list, tile);
 }
 
 /**
@@ -1264,18 +1424,44 @@ static void check_neighbors(int row, int col)
 		start_fill(tile);
 }
 
-static bool fill_pipe(int row, int col)
+static void start_filling_neighbors(int row, int col,
+				    struct tilering *fill_list)
+{
+	struct gametile *tile;
+
+	tile = get_north_neighbor(row, col);
+	if (tile)
+		start_fill(tile, SOUTH, fill_list);
+
+	tile = get_east_neighbor(row, col);
+	if (tile)
+		 start_fill(tile, WEST, fill_list);
+
+	tile = get_south_neighbor(row, col);
+	if (tile)
+		start_fill(tile, NORTH, fill_list);
+
+	tile = get_west_neighbor(row, col);
+	if (tile)
+		start_fill(tile, EAST, fill_list);
+}
+
+static bool fill_pipe(int row, int col, struct tilering *fill_list)
 {
 	boardarray[row][col].flags |= CHANGED;
 	redraw |= REDRAWPIPE | REDRAWSCORE;
 	boardarray[row][col].fill++;
 
-	if (boardarray[row][col].fill >= CAPACITY && !disablescoring) {
-		score += FILLEDPIPESCORE;
-		return is_neighbor_open(row, col);
-	} else {
-		return false;
+	if (boardarray[row][col].fill >= CAPACITY) {
+		if (!disablescoring)
+			score += FILLEDPIPESCORE;
+		if (is_neighbor_open(row, col))
+			return true;
+
+		start_filling_neighbors(row, col, fill_list);
 	}
+
+	return false;
 }
 
 /***************************************************************************
@@ -1285,23 +1471,26 @@ static bool fill_pipe(int row, int col)
 
 static bool fillpipes(void)
 {
+	static struct tilering *fill_list;
+	struct gametile *current;
+
+	if (!fill_list)
+		fill_list = tilering_init(32);
+
 	bool done = false;
-	if (!(boardarray[start_row][start_col].fill))
-		start_fill(&boardarray[start_row][start_col]);
+	if (!(boardarray[start_row][start_col].fill)) {
+		start_fill(&boardarray[start_row][start_col], EAST, fill_list);
 
-	FOREACH_TILE(row, col) {
-		if ((boardarray[row][col].flags & CONNECTED) &&
-		    (!boardarray[row][col].fill))
-			check_neighbors(row, col);
 	}
 
-	FOREACH_TILE(row, col) {
-		if ((boardarray[row][col].fill) &&
-		    (boardarray[row][col].fill < CAPACITY))
-			done |= fill_pipe(row, col);
-	}
+	current = tilering_read(fill_list);
+	if (!current)
+		done = true;
+	else
+		done = fill_pipe(current->row, current->col, fill_list);
 
 	if (done) {
+		tilering_reset(fill_list);
 		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
 		if (!disablescoring && score > highscoretable[0]) {
 			highscoretable[0] = score;
