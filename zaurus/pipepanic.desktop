@@ -1,7 +1,0 @@
-[Desktop Entry]
-Comment=Pipepanic for Zaurus
-Exec=runpipepanic
-Icon=pipepanic
-Type=Application
-Name=Pipepanic
-Display=640x480/144dpi,480x640/144dpi
