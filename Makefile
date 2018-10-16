@@ -1,8 +1,16 @@
 OBJECTS=pipepanic.o
 TARGET=pipepanic
 
+VERSION := $(shell git describe)
+ifeq (,$(VERSION))
+   VERSION := $(shell cat VERSION)
+else
+  $(shell echo $(VERSION) > VERSION)
+endif
+
 CC=gcc
-CFLAGS=-O2 -Wall -pedantic $(shell sdl2-config --cflags)
+CFLAGS=-O2 -Wall -pedantic -DVERSION=\"$(VERSION)\" \
+	   $(shell sdl2-config --cflags)
 LDFLAGS=
 LDLIBS=$(shell sdl2-config --libs)
 ifneq (,$(DEBUG))
