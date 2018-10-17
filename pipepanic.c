@@ -61,12 +61,14 @@ static int highscoretable[5] = {0, 0, 0, 0, 0};
 static int highscoreboard[5][BOARDH * BOARDW];
 static int score = 0;
 static bool disablescoring = false;
+static bool plusmode = true;
 static int gametime = GAMETIME;
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
 static struct gametile boardarray[BOARDH][BOARDW];
 static int start_row, start_col;
 static SDL_Rect tile_rects[BOARDH][BOARDW];
+static SDL_Rect *plusmode_rect = &tile_rects[0][4];
 static SDL_Rect digit_src[11];
 static SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 	new_game_label, gameboard_rect, help_l_label, help_r_label,
@@ -75,7 +77,7 @@ static SDL_Rect hiscore_label, score_label, time_label, fill_label, help_label,
 static bool flashhighscorestate = false;
 static int helppage = 0;
 static const char * const helppages[] = {NULL, HELPPAGE0, HELPPAGE1, HELPPAGE2,
-	     HELPPAGE3, HELPPAGE4, HELPPAGE5};
+	     HELPPAGE3, HELPPAGE4, HELPPAGE5, HELPPAGE6};
 
 /*						  ! "  #  $  %  &  ' ( ) *  + , - . / 0  1  2  3  4  5  6  7  8  9  : ; <  =  >  ?  @  A  B  C  D  E  F  G  H  I J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z  [ \ ] ^  _  ' a  b  c  d  e  f g  h  i j k  l m  n  o  p  q  r s  t u  v  w  x  y  z  { | } ~ */
 static const int asciiwidths[100] = {7,5,10,11,11,18,15,6,6,6,9,11,5,8,5,7,13,10,12,13,14,13,13,13,13,13,5,5,11,11,11,12,15,15,14,13,14,13,12,15,14,6,12,15,12,16,14,16,13,16,14,14,14,14,15,19,13,13,14,8,6,8,11,10,6,13,12,13,12,13,8,13,11,6,6,12,6,17,11,13,12,12,8,12,9,11,12,18,13,12,11,8,4,8,11};
@@ -719,7 +721,8 @@ static void draw_game(void)
 			SDL_SetRenderDrawColor(rrr, YELLOW, 255);
 			SDL_RenderDrawRect(rrr, &dest);
 		} else {
-			draw_digits(highscoretable[0], hiscoredigits, ARRAYSIZE(hiscoredigits));
+			draw_digits(highscoretable[plusmode], hiscoredigits,
+				    ARRAYSIZE(hiscoredigits));
 		}
 	}
 
@@ -776,6 +779,10 @@ static void draw_game(void)
 		x = xres - (BOARDW - 0.2) * tilew;
 		y = 0.2 * BOARDH; if (xres == 240 || xres == 480) y = 2.2 * tileh;
 		draw_ascii(helppages[helppage], x, y);
+		if (helppage == 7) {
+			get_pipe_src(plusmode? 0 : 13, &src, plusmode);
+			blit(tiles, &src, plusmode_rect);
+		}
 	}
 
 	if (redraw != REDRAWNONE)
@@ -1214,13 +1221,13 @@ static void place_pipe(int row, int column)
 	redraw |= REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
 }
 
-static void load_highscore(void)
+static void load_highscore(int index)
 {
 	/* Process High Score clicks */
 	initialise_new_game();
 	/* Copy the highscoreboard into the board array */
 	FOREACH_TILE(row, col) {
-		int pipe = highscoreboard[0][row * BOARDH + col];
+		int pipe = highscoreboard[index][row * BOARDH + col];
 		boardarray[row][col].pipe = pipe;
 		if (pipe == PIPESTART) {
 			start_row = row;
@@ -1253,6 +1260,9 @@ static void manage_mouse_input(void)
 			manage_help_input(SDLK_RIGHT);
 		} else if (mouse_event_in_rect(mx, my, &help_exit_label)) {
 			manage_help_input(SDLK_ESCAPE);
+		} else if (mouse_event_in_rect(mx, my, plusmode_rect)) {
+			plusmode = !plusmode;
+			redraw |= REDRAWHELP;
 		}
 		return;
 	}
@@ -1276,7 +1286,7 @@ static void manage_mouse_input(void)
 	} else if (mouse_event_in_rect(mx, my, &new_game_label)) {
 		game_mode = GAMESTART;
 	} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
-		load_highscore();
+		load_highscore(plusmode);
 	} else if (mouse_event_in_rect(mx, my, &help_label)) {
 		/* Process Help clicks */
 		helppage = 1; /* enter help mode */
@@ -1481,11 +1491,12 @@ static bool fillpipes(void)
 	if (done) {
 		tilering_reset(fill_list);
 		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
-		if (!disablescoring && score > highscoretable[0]) {
-			highscoretable[0] = score;
+		if (!disablescoring && score > highscoretable[plusmode]) {
+			highscoretable[plusmode] = score;
 			/* Copy the board into the highscoreboard */
 			FOREACH_TILE(row, col)
-				highscoreboard[0][row * BOARDH + col] = boardarray[row][col].pipe;
+				highscoreboard[plusmode][row * BOARDH + col] =
+					boardarray[row][col].pipe;
 
 			redraw = redraw | REDRAWHIGHSCORE;
 			game_mode = GAMEFLASHHIGHSCORE;
@@ -1500,11 +1511,34 @@ static bool fillpipes(void)
  * Read Resource File                                                      *
  ***************************************************************************/
 
+static int read_score(FILE* file)
+{
+	int index, index1, result, value;
+
+	result = fscanf(file," %*[[h]ighscore%d%*[]:] %d "
+			"%*[[h]ighscoreboard%d%*[]:]", &index, &value, &index1);
+	if (result != 3 || index != index1 || index >= ARRAYSIZE(highscoretable))
+		return -1;
+
+	highscoretable[index] = value;
+	for (int count = 0; count < BOARDH * BOARDW; count++) {
+		result = fscanf(file,"%i[\n ,]", &value);	/* pipe piece id */
+		if (result == 1)
+			highscoreboard[index][count] = value;
+		else {
+			printf("count %d result: %d\n", count, result);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 static void read_rc_file(void)
 {
 	char buffer[256];
 	FILE* file;
-	int result, value, count;
+	int result;
 
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
@@ -1514,37 +1548,12 @@ static void read_rc_file(void)
 		return;
 	}
 
-	result = fscanf(file,"%s", buffer);	/* [highscore0] */
-	if (result != 1 || strcmp(buffer, "[highscore0]") != 0) {
-		printf("%s: Data from resource file is unreliable\n", __func__);
-		fclose(file);
-		return;
-	}
-	result = fscanf(file,"%i", &value);	/* highscore0 */
-	if (result != 1) {
-		printf("%s: Data from resource file is unreliable\n", __func__);
-		fclose(file);
-		return;
-	} else {
-		highscoretable[0] = value;
+	for (int i = 0; i < ARRAYSIZE(highscoretable); i++) {
+		result = read_score(file);
+		if (result)
+			break;
 	}
 
-	result = fscanf(file,"%s", buffer);	/* [highscoreboard0] */
-	if (result != 1 || strcmp(buffer, "[highscoreboard0]") != 0) {
-		printf("%s: Data from resource file is unreliable\n", __func__);
-		fclose(file);
-		return;
-	}
-	for (count = 0; count < BOARDH * BOARDW; count++) {
-		result = fscanf(file,"%i", &value);	/* pipe piece id */
-		if (result != 1) {
-			printf("%s: Data from resource file is unreliable\n", __func__);
-			fclose(file);
-			return;
-		} else {
-			highscoreboard[0][count] = value;
-		}
-	}
 	fclose(file);
 }
 
@@ -1552,11 +1561,21 @@ static void read_rc_file(void)
  * Save Resource File                                                      *
  ***************************************************************************/
 
+static void write_score(FILE *file, int index)
+{
+	fprintf(file,"[highscore%d]\n%i\n[highscoreboard%d]\n",
+		index, highscoretable[index], index);
+
+	for (int i = 0; i < BOARDH * BOARDW; i++) {
+		fprintf(file, "%3i%c", highscoreboard[index][i],
+			(i % BOARDH == 9)? '\n': ' ');
+	}
+}
+
 static void save_rc_file(void)
 {
 	char buffer[256];
 	FILE* file;
-	int count;
 
 	strcpy(buffer, user_home_dir);
 	strcat(buffer, "/");
@@ -1567,14 +1586,10 @@ static void save_rc_file(void)
 		return;
 	}
 
-	fprintf(file,"[highscore0]\n%i\n", highscoretable[0]);
-
-	fprintf(file,"[highscoreboard0]\n");
-	for (count = 0; count < BOARDH * BOARDW; count++) {
-		if (count > 0 && count % BOARDH == 0) fprintf(file,"\n");
-		fprintf(file,"%3i ", highscoreboard[0][count]);
+	for (int i = 0; i < ARRAYSIZE(highscoretable); i++) {
+		if (highscoretable[i])
+			write_score(file, i);
 	}
-	fprintf(file,"\n");
 
 	fclose(file);
 }
