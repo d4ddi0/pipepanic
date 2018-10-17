@@ -91,6 +91,10 @@ enum game_mode {
 
 #define HELPPAGE5 "Licence\n-----------\nThe source code is licenced under the GNU\nGPL v2 - http://www.gnu.org/copyleft/gpl.html\n\nThe artwork is licenced under the Free Art\nLicence - http://artlibre.org/licence/lal/en/\n\nPipepanic\nCopyright 2006 TheGreenKnight\nthegreenknight1500@hotmail.com\n\nhttp://thunor.org.uk/pipepanic\n\nVersion " VERSION
 
+#define HELPPAGE6 "Plus mode:\n\n" \
+	"Turn off plus mode to disable enhanced features\n" \
+	"and revert the game to classic pipepanic gameplay.\n"
+
 /* tile flags attributes of individual tiles */
 #define NORTH (1 << 0)
 #define EAST  (1 << 1)
