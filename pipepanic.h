@@ -57,6 +57,7 @@ struct game_settings {
 	int delay_per_clear;
 	int delay_per_fill;
 	int steps;
+	bool play_while_filling;
 };
 
 #define REDRAWALL (0xFFFF ^ (REDRAWPIPE | REDRAWHELP))
