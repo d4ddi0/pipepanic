@@ -43,6 +43,22 @@ enum game_mode {
 	GAMEQUIT,
 };
 
+struct game_scoring {
+	int overwrite;
+	int place;
+	int fillearly;
+	int fill;
+	int unfilled;
+	int fillend;
+};
+
+struct game_settings {
+	int duration;
+	int delay_per_clear;
+	int delay_per_fill;
+	int steps;
+};
+
 #define REDRAWALL (0xFFFF ^ (REDRAWPIPE | REDRAWHELP))
 #define REDRAWHELP 256
 #define REDRAWBOARD 128
@@ -56,27 +72,11 @@ enum game_mode {
 
 #define BOARDW 10
 #define BOARDH 10
-#define GAMETIME 60 * 4
-
 #define PIPEARRAYSIZE 105
 #define PREVIEWARRAYSIZE 3
-#define POINTSARRAYSIZE 75
-
-#define CAPACITY (32)
 #define PIPESTART (0)
 #define PIPEEND (1)
-#define LEAKYPIPEVAL +50
 #define NULLPIPEVAL 255
-#define DEADPIPEVAL 253
-
-#define PIPEOVERWRITESCORE -10
-#define PIPEPLACEMENTSCORE 10
-#define FILLNOWSCORE 5
-#define DEADPIPESCORE -10
-#define FILLEDPIPESCORE 50
-
-#define CLEARDEADPIPESTIMEOUT 150
-#define FILLPIPESTIMEOUT 200
 #define FLASHHIGHSCORETIMEOUT 500
 
 #define HELPPAGE0 "Instructions\n----------------\nConnect the green start pipe to the red end\npipe using the pipes from the green tile.\n\nThe more pipes you utilise the greater your\nscore.\n\nThe pipe network will be filled once the time\nexpires or you manually fill the network by\nclicking Fill or the green start pipe.\n\nThe game will end prematurely if a leaky\npipe is found when filling.\n\nClick High Score to view the high score's\npipe network."

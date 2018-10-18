@@ -37,6 +37,38 @@ struct gametile {
 	int fill;
 };
 
+static const struct game_scoring plusscoring = {
+	.overwrite = -2,
+	.place = 2,
+	.fillearly = 1,
+	.fill = 2,
+	.unfilled = -2,
+	.fillend = 20,
+};
+
+static const struct game_settings plussettings = {
+	.duration = 30,
+	.delay_per_clear = 5,
+	.delay_per_fill = 2000,
+	.steps = 48,
+};
+
+static const struct game_scoring classicscoring = {
+	.overwrite = -10,
+	.place = 10,
+	.fillearly = 5,
+	.fill = 10,
+	.unfilled = -10,
+	.fillend = 10,
+};
+
+static const struct game_settings classicsettings = {
+	.duration = 240,
+	.delay_per_clear = 150,
+	.delay_per_fill = 200,
+	.steps = 48,
+};
+
 /* Variable declarations */
 static int xres = 640;
 static int yres = 480;
@@ -62,7 +94,9 @@ static int highscoreboard[5][BOARDH * BOARDW];
 static int score = 0;
 static bool disablescoring = false;
 static bool plusmode = true;
-static int gametime = GAMETIME;
+static const struct game_settings *settings;
+static const struct game_scoring *scoring;
+static int gametime;
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
 static struct gametile boardarray[BOARDH][BOARDW];
@@ -189,8 +223,8 @@ int main(int argc, char *argv[])
 	}
 
 	initialize_drawables(xres, yres);
-	/* Initialise new game */
 	initialise_new_game();
+	game_mode = GAMEOVER;
 	Uint32 timeout = 0;
 	/* Main game loop */
 	while(game_mode != GAMEQUIT) {
@@ -203,6 +237,7 @@ int main(int argc, char *argv[])
 			switch (game_mode) {
 			case GAMESTART:
 				initialise_new_game();
+				game_mode = GAMEON;
 				break;
 			case GAMEON:
 				timeout = ticks + 1000;
@@ -214,7 +249,7 @@ int main(int argc, char *argv[])
 				}
 				break;
 			case GAMEFINISH:
-				score = score + gametime * FILLNOWSCORE;
+				score = score + gametime * scoring->fillearly;
 				gametime = 0;
 				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
 				set_pipe_directions();
@@ -222,7 +257,7 @@ int main(int argc, char *argv[])
 				game_mode = GAMECLEARDEADPIPES;
 				break;
 			case GAMECLEARDEADPIPES:
-				timeout = ticks + CLEARDEADPIPESTIMEOUT;
+				timeout = ticks + settings->delay_per_clear;
 				cleardeadpipes();
 				if (game_mode == GAMEFILLPIPES) {
 					timeout = 0;
@@ -232,8 +267,9 @@ int main(int argc, char *argv[])
 				if (fillpipes())
 					game_mode = GAMEOVER;
 				else
-					timeout = ticks + (FILLPIPESTIMEOUT /
-							   CAPACITY);
+					timeout = ticks +
+						(settings->delay_per_fill /
+						 settings->steps);
 				break;
 			case GAMEFLASHHIGHSCORE:
 				timeout = ticks + FLASHHIGHSCORETIMEOUT;
@@ -579,11 +615,11 @@ static void draw_partial_tile(int row, int col)
 	SDL_Rect src, dest;
 	int offset;
 	const struct gametile *tile = &boardarray[row][col];
-	int unfilled = CAPACITY - tile->fill;
+	int unfilled = settings->steps - tile->fill;
 
 	get_pipe_src(tile->pipe, &src, true);
 	blit(tiles, &src, &tile_rects[row][col]);
-	if (tile->fill >= CAPACITY)
+	if (tile->fill >= settings->steps)
 		return;
 
 	get_pipe_src(tile->pipe, &src, false);
@@ -591,32 +627,32 @@ static void draw_partial_tile(int row, int col)
 	switch (tile->flags & FILLDIRECTION_MASK) {
 	case FROM_NORTH:
 		dest.w = src.w;
-		dest.h = src.h = unfilled * tileh / CAPACITY;
+		dest.h = src.h = unfilled * tileh / settings->steps;
 		src.y += tileh - src.h;
 		dest.x = tile_rects[row][col].x;
 		dest.y = tile_rects[row][col].y + tileh - src.h;
 		break;
 	case FROM_EAST:
-		dest.w = src.w = unfilled * tilew / CAPACITY;
+		dest.w = src.w = unfilled * tilew / settings->steps;
 		dest.h = src.h;
 		dest.x = tile_rects[row][col].x;
 		dest.y = tile_rects[row][col].y;
 		break;
 	case FROM_SOUTH:
 		dest.w = src.w;
-		dest.h = src.h = unfilled * tileh / CAPACITY;
+		dest.h = src.h = unfilled * tileh / settings->steps;
 		dest.x = tile_rects[row][col].x;
 		dest.y = tile_rects[row][col].y;
 		break;
 	case FROM_WEST:
-		dest.w = src.w = unfilled * tilew / CAPACITY;
+		dest.w = src.w = unfilled * tilew / settings->steps;
 		dest.h = src.h;
 		src.x += tilew - src.w;
 		dest.x = tile_rects[row][col].x + tilew - src.w;
 		dest.y = tile_rects[row][col].y;
 		break;
 	default:
-		src.w = SDL_sqrt(tilew * tilew * unfilled / CAPACITY);
+		src.w = SDL_sqrt(tilew * tilew * unfilled / settings->steps);
 		dest.h = dest.w = src.h = src.w;
 		offset = (tilew - src.w) >> 1;
 		src.x += offset;
@@ -855,12 +891,18 @@ static void draw_digits(int value, SDL_Rect *label, int len) {
 
 static void initialise_new_game(void)
 {
-	game_mode = GAMEON;
+	if (plusmode) {
+		settings = &plussettings;
+		scoring = &plusscoring;
+	} else {
+		settings = &classicsettings;
+		scoring = &classicscoring;
+	}
 	redraw = REDRAWALL;
 	score = 0;
 	disablescoring = false;
 	flashhighscorestate = false;
-	gametime = GAMETIME;
+	gametime = settings->duration;
 
 	/* Clear the game board array */
 	FOREACH_TILE(row, col) {
@@ -1205,9 +1247,9 @@ static void place_pipe(int row, int column)
 
 	/* Place pipe piece from start of preview array. */
 	if (boardarray[row][column].pipe != NULLPIPEVAL) {
-		score = score + PIPEOVERWRITESCORE;
+		score = score + scoring->overwrite;
 	} else {
-		score = score + PIPEPLACEMENTSCORE;
+		score = score + scoring->place;
 	}
 	boardarray[row][column].pipe = previewarray[0];
 	boardarray[row][column].flags |= CHANGED;
@@ -1262,7 +1304,9 @@ static void manage_mouse_input(void)
 			manage_help_input(SDLK_ESCAPE);
 		} else if (mouse_event_in_rect(mx, my, plusmode_rect)) {
 			plusmode = !plusmode;
-			redraw |= REDRAWHELP;
+			initialise_new_game();
+			game_mode = GAMEOVER;
+			redraw = REDRAWHELP | REDRAWHIGHSCORE | REDRAWSCORE;
 		}
 		return;
 	}
@@ -1338,7 +1382,7 @@ static void cleardeadpipes(void)
 		    (!(tile->flags & CONNECTED))) {
 			tile->pipe = NULLPIPEVAL;
 			tile->flags = CHANGED;
-			score += DEADPIPESCORE;
+			score += scoring->unfilled;
 			redraw |= REDRAWPIPE | REDRAWSCORE;
 			return; /* return immedaitely */
 		}
@@ -1384,7 +1428,7 @@ static struct gametile *tilering_read(struct tilering *ring)
 	struct gametile **tmp_read = ring->read + 1;
 	while (tmp_read < ring->end) {
 		if (*tmp_read!= NULL) {
-			if ((*tmp_read)->fill >= CAPACITY) {
+			if ((*tmp_read)->fill >= settings->steps) {
 				*tmp_read = NULL;
 			} else {
 			    ring->read = tmp_read;
@@ -1396,7 +1440,7 @@ static struct gametile *tilering_read(struct tilering *ring)
 	tmp_read = ring->start;
 	while (tmp_read <= ring->read) {
 		if (*tmp_read != NULL) {
-			if ((*tmp_read)->fill >= CAPACITY) {
+			if ((*tmp_read)->fill >= settings->steps) {
 				*tmp_read = NULL;
 			} else {
 			    ring->read = tmp_read;
@@ -1451,9 +1495,14 @@ static bool fill_pipe(int row, int col, struct tilering *fill_list)
 	redraw |= REDRAWPIPE | REDRAWSCORE;
 	boardarray[row][col].fill++;
 
-	if (boardarray[row][col].fill >= CAPACITY) {
-		if (!disablescoring)
-			score += FILLEDPIPESCORE;
+	if (boardarray[row][col].fill >= settings->steps) {
+		if (!disablescoring) {
+			if (boardarray[row][col].pipe == PIPEEND)
+				score += scoring->fillend;
+			else
+				score += scoring->fill;
+		}
+
 		if (is_neighbor_open(row, col))
 			return true;
 
