@@ -48,9 +48,11 @@ static const struct game_scoring plusscoring = {
 
 static const struct game_settings plussettings = {
 	.duration = 30,
-	.delay_per_clear = 5,
-	.delay_per_fill = 2000,
+	.delay_per_clear = 150,
+	.filltime = 2000,
+	.postfilltime = 200,
 	.steps = 48,
+	.play_while_filling = true,
 };
 
 static const struct game_scoring classicscoring = {
@@ -65,8 +67,15 @@ static const struct game_scoring classicscoring = {
 static const struct game_settings classicsettings = {
 	.duration = 240,
 	.delay_per_clear = 150,
-	.delay_per_fill = 200,
+	.postfilltime = 200,
 	.steps = 48,
+};
+
+struct tilering {
+	struct gametile **start;
+	struct gametile **end;
+	struct gametile **read;
+	struct gametile **write;
 };
 
 /* Variable declarations */
@@ -100,6 +109,7 @@ static int gametime;
 static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
 static struct gametile boardarray[BOARDH][BOARDW];
+static struct tilering *fill_list;
 static int start_row, start_col;
 static SDL_Rect tile_rects[BOARDH][BOARDW];
 static SDL_Rect *plusmode_rect = &tile_rects[0][4];
@@ -126,9 +136,9 @@ static int getnextpipepiece(void);
 static void fillpipearray(void);
 static int fillpipearraypieces(int pipepiece, int frequency, int nextpointer);
 static void get_pipe_src(int pipeid, SDL_Rect *rect, bool filled);
-static void set_pipe_directions(void);
 static void cleardeadpipes(void);
-static bool fillpipes(void);
+static bool fillpipes(struct tilering *fill_list);
+static void check_highscore();
 static void read_rc_file(void);
 static void save_rc_file(void);
 static void draw_ascii(const char *const text, int xpos, int ypos);
@@ -138,6 +148,11 @@ static void initialize_drawables(int w, int h);
 static void setup_gameboard(void);
 static void setup_img_src_rects(void);
 static void mark_neighbors(int row, int col, int flags);
+static int get_pipe_directions(int targettype);
+static struct tilering *tilering_init(int size);
+static void tilering_reset(struct tilering *ring);
+static void start_fill(struct gametile *tile, int direction,
+		       struct tilering *fill_list);
 static struct gametile *get_north_neighbor(int row, int col);
 static struct gametile *get_east_neighbor(int row, int col);
 static struct gametile *get_south_neighbor(int row, int col);
@@ -225,6 +240,7 @@ int main(int argc, char *argv[])
 	initialize_drawables(xres, yres);
 	initialise_new_game();
 	game_mode = GAMEOVER;
+	bool pipes_filled = false;
 	Uint32 timeout = 0;
 	/* Main game loop */
 	while(game_mode != GAMEQUIT) {
@@ -237,22 +253,33 @@ int main(int argc, char *argv[])
 			switch (game_mode) {
 			case GAMESTART:
 				initialise_new_game();
+				pipes_filled = false;
+				start_fill(&boardarray[start_row][start_col],
+					   EAST, fill_list);
 				game_mode = GAMEON;
 				break;
 			case GAMEON:
-				timeout = ticks + 1000;
 				redraw = redraw | REDRAWTIMER;
-				gametime = gametime - 1;
-				if (gametime <= 0) {
-					timeout = 0;
-					game_mode = GAMEFINISH;
+				if (gametime > 0) {
+					timeout = ticks + 1000;
+					gametime = gametime - 1;
+					break;
 				}
+
+				if (!settings->play_while_filling ||
+				    (pipes_filled = fillpipes(fill_list))) {
+					game_mode = GAMEFINISH;
+					break;
+				}
+
+				timeout = ticks + (settings->filltime /
+						   settings->steps);
 				break;
 			case GAMEFINISH:
-				score = score + gametime * scoring->fillearly;
+				if (!disablescoring)
+					score += gametime * scoring->fillearly;
 				gametime = 0;
 				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-				set_pipe_directions();
 				mark_neighbors(start_row, start_col, CONNECTED);
 				game_mode = GAMECLEARDEADPIPES;
 				break;
@@ -264,12 +291,13 @@ int main(int argc, char *argv[])
 				}
 				break;
 			case GAMEFILLPIPES:
-				if (fillpipes())
+				if (pipes_filled || fillpipes(fill_list)) {
 					game_mode = GAMEOVER;
-				else
-					timeout = ticks +
-						(settings->delay_per_fill /
-						 settings->steps);
+					check_highscore();
+					break;
+				}
+				timeout = ticks + (settings->postfilltime /
+						   settings->steps);
 				break;
 			case GAMEFLASHHIGHSCORE:
 				timeout = ticks + FLASHHIGHSCORETIMEOUT;
@@ -884,6 +912,14 @@ static void draw_digits(int value, SDL_Rect *label, int len) {
 	}
 }
 
+static void set_pipe(struct gametile *tile, int pipe)
+{
+	tile->pipe = pipe;
+	tile->flags &= ~(NORTH | EAST | SOUTH | WEST);
+	tile->flags |= CHANGED | get_pipe_directions(pipe);
+	redraw |= REDRAWPIPE;
+}
+
 /***************************************************************************
  * Initialise New Game                                                     *
  ***************************************************************************/
@@ -898,6 +934,9 @@ static void initialise_new_game(void)
 		settings = &classicsettings;
 		scoring = &classicscoring;
 	}
+	if (!fill_list)
+		fill_list = tilering_init(32);
+
 	redraw = REDRAWALL;
 	score = 0;
 	disablescoring = false;
@@ -906,11 +945,11 @@ static void initialise_new_game(void)
 
 	/* Clear the game board array */
 	FOREACH_TILE(row, col) {
-		boardarray[row][col].pipe = NULLPIPEVAL;
 		boardarray[row][col].flags = 0;
 		boardarray[row][col].fill = 0;
 		boardarray[row][col].row = row;
 		boardarray[row][col].col = col;
+		set_pipe(&boardarray[row][col], NULLPIPEVAL);
 	}
 
 	/* Setup and initialise preview pieces/array. */
@@ -919,10 +958,12 @@ static void initialise_new_game(void)
 	}
 
 	/* Place end points and record in game board array. */
-	boardarray[rand() % BOARDH][0].pipe = PIPEEND;
+	set_pipe(&boardarray[rand() % BOARDH][0], PIPEEND);
 	start_row = rand() % BOARDH;
 	start_col = BOARDW - 1;
-	boardarray[start_row][start_col].pipe = PIPESTART;
+	set_pipe(&boardarray[start_row][start_col], PIPESTART);
+	tilering_reset(fill_list);
+	start_fill(&boardarray[start_row][start_col], EAST, fill_list);
 }
 
 /***************************************************************************
@@ -1233,26 +1274,19 @@ static bool is_neighbor_open(int row, int col)
 	return false;
 }
 
-static void set_pipe_directions(void)
-{
-	FOREACH_TILE(row, col) {
-		struct gametile *tile = &boardarray[row][col];
-		tile->flags &= ~(NORTH | EAST | SOUTH | WEST);
-		tile->flags |= get_pipe_directions(tile->pipe);
-	}
-}
-
 static void place_pipe(int row, int column)
 {
-
 	/* Place pipe piece from start of preview array. */
 	if (boardarray[row][column].pipe != NULLPIPEVAL) {
+		if (boardarray[row][column].fill)
+			return;
+
 		score = score + scoring->overwrite;
 	} else {
 		score = score + scoring->place;
 	}
-	boardarray[row][column].pipe = previewarray[0];
-	boardarray[row][column].flags |= CHANGED;
+
+	set_pipe(&boardarray[row][column], previewarray[0]);
 	/* Move all preview pieces down 1 place. */
 	for (int count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
 		previewarray[count] = previewarray[count + 1];
@@ -1260,7 +1294,7 @@ static void place_pipe(int row, int column)
 	/* Add a new preview piece at the end. */
 	previewarray[PREVIEWARRAYSIZE - 1] = getnextpipepiece();
 	/* Mark tile for drawing and redraw everything related */
-	redraw |= REDRAWPIPE | REDRAWSCORE | REDRAWPREVIEW;
+	redraw |= REDRAWSCORE | REDRAWPREVIEW;
 }
 
 static void load_highscore(int index)
@@ -1270,7 +1304,7 @@ static void load_highscore(int index)
 	/* Copy the highscoreboard into the board array */
 	FOREACH_TILE(row, col) {
 		int pipe = highscoreboard[index][row * BOARDH + col];
-		boardarray[row][col].pipe = pipe;
+		set_pipe(&boardarray[row][col], pipe);
 		if (pipe == PIPESTART) {
 			start_row = row;
 			start_col = col;
@@ -1278,6 +1312,8 @@ static void load_highscore(int index)
 	}
 	gametime = 0;
 	disablescoring = true;	/* This is only used here to prevent the score from incrementing whilst filling. */
+	tilering_reset(fill_list);
+	start_fill(&boardarray[start_row][start_col], EAST, fill_list);
 	game_mode = GAMEFINISH;
 }
 
@@ -1326,7 +1362,6 @@ static void manage_mouse_input(void)
 	} else if (mouse_event_in_rect(mx, my, &fill_label)) {
 		if (game_mode == GAMEON)
 			game_mode = GAMEFINISH;
-
 	} else if (mouse_event_in_rect(mx, my, &new_game_label)) {
 		game_mode = GAMESTART;
 	} else if (mouse_event_in_rect(mx, my, &hiscore_label)) {
@@ -1380,9 +1415,9 @@ static void cleardeadpipes(void)
 
 		if ((tile->pipe != NULLPIPEVAL) &&
 		    (!(tile->flags & CONNECTED))) {
-			tile->pipe = NULLPIPEVAL;
-			tile->flags = CHANGED;
-			score += scoring->unfilled;
+			set_pipe(tile, NULLPIPEVAL);
+			if (!disablescoring)
+				score += scoring->unfilled;
 			redraw |= REDRAWPIPE | REDRAWSCORE;
 			return; /* return immedaitely */
 		}
@@ -1390,13 +1425,6 @@ static void cleardeadpipes(void)
 
 	game_mode = GAMEFILLPIPES;
 }
-
-struct tilering {
-	struct gametile **start;
-	struct gametile **end;
-	struct gametile **read;
-	struct gametile **write;
-};
 
 static void tilering_reset(struct tilering *ring)
 {
@@ -1517,43 +1545,29 @@ static bool fill_pipe(int row, int col, struct tilering *fill_list)
  ***************************************************************************/
 /* This fills one or several pipes at a time. */
 
-static bool fillpipes(void)
+static bool fillpipes(struct tilering *fill_list)
 {
-	static struct tilering *fill_list;
-	struct gametile *current;
-
-	if (!fill_list)
-		fill_list = tilering_init(32);
-
-	bool done = false;
-	if (!(boardarray[start_row][start_col].fill)) {
-		start_fill(&boardarray[start_row][start_col], EAST, fill_list);
-
-	}
-
-	current = tilering_read(fill_list);
+	struct gametile *current = tilering_read(fill_list);
 	if (!current)
-		done = true;
+		return true;
 	else
-		done = fill_pipe(current->row, current->col, fill_list);
+		return fill_pipe(current->row, current->col, fill_list);
+}
 
-	if (done) {
-		tilering_reset(fill_list);
-		/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
-		if (!disablescoring && score > highscoretable[plusmode]) {
-			highscoretable[plusmode] = score;
-			/* Copy the board into the highscoreboard */
-			FOREACH_TILE(row, col)
-				highscoreboard[plusmode][row * BOARDH + col] =
-					boardarray[row][col].pipe;
+static void check_highscore()
+{
+	/* Ok, last bit: high score, again ignoring whilst displaying the highscoreboard */
+	if (!disablescoring && score > highscoretable[plusmode]) {
+		highscoretable[plusmode] = score;
+		/* Copy the board into the highscoreboard */
+		FOREACH_TILE(row, col)
+			highscoreboard[plusmode][row * BOARDH + col] =
+				boardarray[row][col].pipe;
 
-			redraw = redraw | REDRAWHIGHSCORE;
-			game_mode = GAMEFLASHHIGHSCORE;
-			save_rc_file(); /* This saves the new highscore[s] */
-			return false;
-		}
+		redraw = redraw | REDRAWHIGHSCORE;
+		game_mode = GAMEFLASHHIGHSCORE;
+		save_rc_file(); /* This saves the new highscore[s] */
 	}
-	return done;
 }
 
 /***************************************************************************

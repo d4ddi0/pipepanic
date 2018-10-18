@@ -55,8 +55,10 @@ struct game_scoring {
 struct game_settings {
 	int duration;
 	int delay_per_clear;
-	int delay_per_fill;
+	int filltime;
+	int postfilltime;
 	int steps;
+	bool play_while_filling;
 };
 
 #define REDRAWALL (0xFFFF ^ (REDRAWPIPE | REDRAWHELP))
