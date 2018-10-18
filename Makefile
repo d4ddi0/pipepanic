@@ -9,12 +9,14 @@ else
 endif
 
 CC=gcc
-CFLAGS=-O2 -Wall -pedantic -DVERSION=\"$(VERSION)\" \
+CFLAGS := -Wall -pedantic -DVERSION=\"$(VERSION)\" \
 	   $(shell sdl2-config --cflags)
 LDFLAGS=
 LDLIBS=$(shell sdl2-config --libs)
 ifneq (,$(DEBUG))
-	CFLAGS += -g -DDEBUG
+	CFLAGS += -g -DDEBUG -O0
+else
+	CFLAGS += -O2
 endif
 
 all: pipepanic
