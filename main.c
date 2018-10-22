@@ -1057,20 +1057,20 @@ static void mark_neighbors(int row, int col, int flags)
  */
 static bool is_neighbor_open(int row, int col)
 {
-	if ((row > 0) && (boardarray[row][col].flags & NORTH) &&
-	    (!(boardarray[row -1][col].flags & SOUTH)))
+	if ((boardarray[row][col].flags & NORTH) &&
+	    ((row == 0) || !(boardarray[row -1][col].flags & SOUTH)))
 		return true;
 
-	if ((col < (BOARDW - 1)) && (boardarray[row][col].flags & EAST) &&
-	    (!(boardarray[row][col + 1].flags & WEST)))
+	if ((boardarray[row][col].flags & EAST) &&
+	    ((col == (BOARDW - 1)) || !(boardarray[row][col + 1].flags & WEST)))
 		return true;
 
-	if ((row < (BOARDH - 1)) && (boardarray[row][col].flags & SOUTH) &&
-	    (!(boardarray[row + 1][col].flags & NORTH)))
+	if ((boardarray[row][col].flags & SOUTH) &&
+	    ((row == (BOARDH - 1)) || !(boardarray[row + 1][col].flags & NORTH)))
 		return true;
 
-	if ((col > 0) && (boardarray[row][col].flags & WEST) &&
-	    (!(boardarray[row][col - 1].flags & EAST)))
+	if ((boardarray[row][col].flags & WEST) &&
+	    ((col == 0) || !(boardarray[row][col - 1].flags & EAST)))
 		return true;
 
 	return false;
