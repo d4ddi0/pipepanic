@@ -491,6 +491,12 @@ static void setup_mouse()
 	mouse_scale.y *= mouse_scale.h;
 }
 
+static SDL_Rect *get_tile_rect(const struct gametile *tile)
+{
+	int offset = tile - boardarray[0];
+	return tile_rects[0] + offset;
+}
+
 static void setup_gameboard(void)
 {
 	int y = (xres == 240 || xres == 480)? 2 * tileh : 0;
@@ -637,15 +643,15 @@ static void draw_preview(void)
 	}
 }
 
-static void draw_partial_tile(int row, int col)
+static void draw_partial_tile(const struct gametile *tile)
 {
 	SDL_Rect src, dest;
+	SDL_Rect *tile_rect = get_tile_rect(tile);
 	int offset;
-	const struct gametile *tile = &boardarray[row][col];
 	int unfilled = settings->steps - tile->fill;
 
 	get_pipe_src(tile->pipe, &src, true);
-	blit(tiles, &src, &tile_rects[row][col]);
+	blit(tiles, &src, tile_rect);
 	if (tile->fill >= settings->steps)
 		return;
 
@@ -656,27 +662,27 @@ static void draw_partial_tile(int row, int col)
 		dest.w = src.w;
 		dest.h = src.h = unfilled * tileh / settings->steps;
 		src.y += tileh - src.h;
-		dest.x = tile_rects[row][col].x;
-		dest.y = tile_rects[row][col].y + tileh - src.h;
+		dest.x = tile_rect->x;
+		dest.y = tile_rect->y + tileh - src.h;
 		break;
 	case FROM_EAST:
 		dest.w = src.w = unfilled * tilew / settings->steps;
 		dest.h = src.h;
-		dest.x = tile_rects[row][col].x;
-		dest.y = tile_rects[row][col].y;
+		dest.x = tile_rect->x;
+		dest.y = tile_rect->y;
 		break;
 	case FROM_SOUTH:
 		dest.w = src.w;
 		dest.h = src.h = unfilled * tileh / settings->steps;
-		dest.x = tile_rects[row][col].x;
-		dest.y = tile_rects[row][col].y;
+		dest.x = tile_rect->x;
+		dest.y = tile_rect->y;
 		break;
 	case FROM_WEST:
 		dest.w = src.w = unfilled * tilew / settings->steps;
 		dest.h = src.h;
 		src.x += tilew - src.w;
-		dest.x = tile_rects[row][col].x + tilew - src.w;
-		dest.y = tile_rects[row][col].y;
+		dest.x = tile_rect->x + tilew - src.w;
+		dest.y = tile_rect->y;
 		break;
 	default:
 		src.w = SDL_sqrt(tilew * tilew * unfilled / settings->steps);
@@ -684,8 +690,8 @@ static void draw_partial_tile(int row, int col)
 		offset = (tilew - src.w) >> 1;
 		src.x += offset;
 		src.y += offset;
-		dest.x = tile_rects[row][col].x + offset;
-		dest.y = tile_rects[row][col].y + offset;
+		dest.x = tile_rect->x + offset;
+		dest.y = tile_rect->y + offset;
 		break;
 
 	}
@@ -693,11 +699,10 @@ static void draw_partial_tile(int row, int col)
 	blit(tiles, &src, &dest);
 }
 
-static void draw_tile(int row, int col, bool force)
+static void draw_tile(struct gametile *tile, bool force)
 {
-	struct gametile *tile = &boardarray[row][col];
-
 	SDL_Rect src;
+	SDL_Rect *tile_rect = get_tile_rect(tile);
 
 	if (!(tile->flags & CHANGED) && !force)
 		return;
@@ -706,13 +711,13 @@ static void draw_tile(int row, int col, bool force)
 	src.y = 6 * tileh;
 	src.w = tilew;
 	src.h = tileh;
-	blit(tiles, &src, &tile_rects[row][col]);
+	blit(tiles, &src, tile_rect);
 	if (tile->pipe != NULLPIPEVAL) {
 		if (tile->fill) {
-			draw_partial_tile(row, col);
+			draw_partial_tile(tile);
 		} else {
 			get_pipe_src(tile->pipe, &src, false);
-			blit(tiles, &src, &tile_rects[row][col]);
+			blit(tiles, &src, tile_rect);
 		}
 	}
 	tile->flags &= ~CHANGED;
@@ -773,7 +778,7 @@ static void draw_game(void)
 
 	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
 		FOREACH_TILE(row, col)
-			draw_tile(row, col, true);
+			draw_tile(&boardarray[row][col], true);
 	}
 	if ((redraw & REDRAWHIGHSCORE) == REDRAWHIGHSCORE) {
 		/* The top high score */
@@ -805,7 +810,7 @@ static void draw_game(void)
 	}
 	if (redraw & REDRAWPIPE) {
 		FOREACH_TILE(row, col)
-			draw_tile(row, col, false);
+			draw_tile(&boardarray[row][col], false);
 	}
 
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
@@ -1296,11 +1301,11 @@ static bool is_neighbor_open(struct gametile *tile)
 	return false;
 }
 
-static void place_pipe(int row, int column)
+static void place_pipe(struct gametile *tile)
 {
 	/* Place pipe piece from start of preview array. */
-	if (boardarray[row][column].pipe != NULLPIPEVAL) {
-		if (boardarray[row][column].fill)
+	if (tile->pipe != NULLPIPEVAL) {
+		if (tile->fill)
 			return;
 
 		score = score + scoring->overwrite;
@@ -1308,7 +1313,7 @@ static void place_pipe(int row, int column)
 		score = score + scoring->place;
 	}
 
-	set_pipe(&boardarray[row][column], previewarray[0]);
+	set_pipe(tile, previewarray[0]);
 	/* Move all preview pieces down 1 place. */
 	for (int count = 0; count < PREVIEWARRAYSIZE - 1; count++) {
 		previewarray[count] = previewarray[count + 1];
@@ -1373,10 +1378,11 @@ static void manage_mouse_input(void)
 			/* Convert the mouse coordinates to offsets into the board array */
 			int column = (mx - gameboard_rect.x) / tilew;
 			int row = (my - gameboard_rect.y) / tileh;
+			struct gametile *tile = &boardarray[row][column];
 
-			if (boardarray[row][column].pipe > PIPEEND)
-				place_pipe(row, column);
-			else if (boardarray[row][column].pipe == PIPESTART)
+			if (tile->pipe > PIPEEND)
+				place_pipe(tile);
+			else if (tile->pipe == PIPESTART)
 				game_mode = GAMEFINISH;
 		}
 	} else if (mouse_event_in_rect(mx, my, &fill_label)) {
