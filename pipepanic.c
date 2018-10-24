@@ -110,7 +110,7 @@ static int previewarray[PREVIEWARRAYSIZE];
 static int pipearray[PIPEARRAYSIZE];
 static struct gametile boardarray[BOARDH][BOARDW];
 static struct tilering *fill_list;
-static int start_row, start_col;
+static struct gametile *start;
 static SDL_Rect tile_rects[BOARDH][BOARDW];
 static SDL_Rect *plusmode_rect = &tile_rects[0][4];
 static SDL_Rect digit_src[11];
@@ -147,7 +147,7 @@ static void manage_mouse_input(void);
 static void initialize_drawables(int w, int h);
 static void setup_gameboard(void);
 static void setup_img_src_rects(void);
-static void mark_neighbors(int row, int col, int flags);
+static void mark_neighbors(struct gametile *tile, int flags);
 static int get_pipe_directions(int targettype);
 static struct tilering *tilering_init(int size);
 static void tilering_reset(struct tilering *ring);
@@ -254,8 +254,7 @@ int main(int argc, char *argv[])
 			case GAMESTART:
 				initialise_new_game();
 				pipes_filled = false;
-				start_fill(&boardarray[start_row][start_col],
-					   EAST, fill_list);
+				start_fill(start, EAST, fill_list);
 				game_mode = GAMEON;
 				break;
 			case GAMEON:
@@ -280,7 +279,7 @@ int main(int argc, char *argv[])
 					score += gametime * scoring->fillearly;
 				gametime = 0;
 				redraw = redraw | REDRAWSCORE | REDRAWTIMER;
-				mark_neighbors(start_row, start_col, CONNECTED);
+				mark_neighbors(start, CONNECTED);
 				game_mode = GAMECLEARDEADPIPES;
 				break;
 			case GAMECLEARDEADPIPES:
@@ -927,6 +926,8 @@ static void set_pipe(struct gametile *tile, int pipe)
 
 static void initialise_new_game(void)
 {
+	int start_row, start_col;
+
 	if (plusmode) {
 		settings = &plussettings;
 		scoring = &plusscoring;
@@ -961,9 +962,10 @@ static void initialise_new_game(void)
 	set_pipe(&boardarray[rand() % BOARDH][0], PIPEEND);
 	start_row = rand() % BOARDH;
 	start_col = BOARDW - 1;
-	set_pipe(&boardarray[start_row][start_col], PIPESTART);
+	start = &boardarray[start_row][start_col];
+	set_pipe(start, PIPESTART);
 	tilering_reset(fill_list);
-	start_fill(&boardarray[start_row][start_col], EAST, fill_list);
+	start_fill(start, EAST, fill_list);
 }
 
 /***************************************************************************
@@ -1184,36 +1186,6 @@ static int get_pipe_directions(int targettype)
 	}
 }
 
-/**
- * recursively find any neighbors without flags
- * and mark them with flags
- */
-static void mark_neighbors(int row, int col, int flags)
-{
-	struct gametile *tile = &boardarray[row][col];
-	tile->flags |= flags;
-	if (row > 0 && tile->flags & NORTH) {
-		if ((boardarray[row -1][col].flags & SOUTH) &&
-		    (!(boardarray[row -1][col].flags & flags)))
-			mark_neighbors(row - 1, col, flags);
-	}
-	if (col < (BOARDW - 1) && tile->flags & EAST) {
-		if ((boardarray[row][col + 1].flags & WEST) &&
-		    (!(boardarray[row][col + 1].flags & flags)))
-			mark_neighbors(row, col + 1, flags);
-	}
-	if (row < (BOARDH - 1) && tile->flags & SOUTH) {
-		if ((boardarray[row + 1][col].flags & NORTH) &&
-		    (!(boardarray[row + 1][col].flags & flags)))
-			mark_neighbors(row + 1, col, flags);
-	}
-	if (col > 0 && tile->flags & WEST) {
-		if ((boardarray[row][col - 1].flags & EAST) &&
-		    (!(boardarray[row][col - 1].flags & flags)))
-			mark_neighbors(row, col - 1, flags);
-	}
-}
-
 static bool is_first_row(struct gametile *tile)
 {
 	return ((tile - boardarray[0]) < BOARDW);
@@ -1265,6 +1237,30 @@ static struct gametile *get_west_neighbor(struct gametile *tile)
 
 	 return tile - 1;
 }
+
+
+static void mark_neighbors(struct gametile *tile, int flags)
+{
+	struct gametile *neighbor;
+
+	tile->flags |= flags;
+	neighbor = get_north_neighbor(tile);
+	if (neighbor && (neighbor->flags & SOUTH) && !(neighbor->flags & flags))
+		mark_neighbors(neighbor, flags);
+
+	neighbor = get_east_neighbor(tile);
+	if (neighbor && (neighbor->flags & WEST) && !(neighbor->flags & flags))
+		mark_neighbors(neighbor, flags);
+
+	neighbor = get_south_neighbor(tile);
+	if (neighbor && (neighbor->flags & NORTH) && !(neighbor->flags & flags))
+		mark_neighbors(neighbor, flags);
+
+	neighbor = get_west_neighbor(tile);
+	if (neighbor && (neighbor->flags & EAST) && !(neighbor->flags & flags))
+		mark_neighbors(neighbor, flags);
+}
+
 
 /**
  * return true if the tile has any open ends
@@ -1331,15 +1327,13 @@ static void load_highscore(int index)
 	FOREACH_TILE(row, col) {
 		int pipe = highscoreboard[index][row * BOARDH + col];
 		set_pipe(&boardarray[row][col], pipe);
-		if (pipe == PIPESTART) {
-			start_row = row;
-			start_col = col;
-		}
+		if (pipe == PIPESTART)
+			start = &boardarray[row][col];
 	}
 	gametime = 0;
 	disablescoring = true;	/* This is only used here to prevent the score from incrementing whilst filling. */
 	tilering_reset(fill_list);
-	start_fill(&boardarray[start_row][start_col], EAST, fill_list);
+	start_fill(start, EAST, fill_list);
 	game_mode = GAMEFINISH;
 }
 
