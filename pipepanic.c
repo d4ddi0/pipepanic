@@ -153,10 +153,10 @@ static struct tilering *tilering_init(int size);
 static void tilering_reset(struct tilering *ring);
 static void start_fill(struct gametile *tile, int direction,
 		       struct tilering *fill_list);
-static struct gametile *get_north_neighbor(int row, int col);
-static struct gametile *get_east_neighbor(int row, int col);
-static struct gametile *get_south_neighbor(int row, int col);
-static struct gametile *get_west_neighbor(int row, int col);
+static struct gametile *get_north_neighbor(struct gametile *tile);
+static struct gametile *get_east_neighbor(struct gametile *tile);
+static struct gametile *get_south_neighbor(struct gametile *tile);
+static struct gametile *get_west_neighbor(struct gametile *tile);
 
 
 
@@ -1214,62 +1214,88 @@ static void mark_neighbors(int row, int col, int flags)
 	}
 }
 
-static struct gametile *get_north_neighbor(int row, int col)
+static bool is_first_row(struct gametile *tile)
 {
-	if ((row > 0) && (boardarray[row][col].flags & NORTH) &&
-	    (boardarray[row -1][col].flags & SOUTH))
-		return &boardarray[row -1][col];
-
-	return NULL;
+	return ((tile - boardarray[0]) < BOARDW);
 }
 
-static struct gametile *get_east_neighbor(int row, int col)
+static bool is_first_col(struct gametile *tile)
 {
-	if ((col < (BOARDW - 1)) && (boardarray[row][col].flags & EAST) &&
-	    (boardarray[row][col + 1].flags & WEST))
-		return &boardarray[row][col + 1];
-
-	return NULL;
+	return (((tile - boardarray[0]) % BOARDW) == 0);
 }
 
-static struct gametile *get_south_neighbor(int row, int col)
+static bool is_last_row(struct gametile *tile)
 {
-	if ((row < (BOARDH - 1)) && (boardarray[row][col].flags & SOUTH) &&
-	    (boardarray[row + 1][col].flags & NORTH))
-		return &boardarray[row + 1][col];
-
-	return NULL;
+	return ((tile - boardarray[0]) >= (BOARDW * (BOARDH -1)));
 }
 
-static struct gametile *get_west_neighbor(int row, int col)
+static bool is_last_col(struct gametile *tile)
 {
-	if ((col > 0) && (boardarray[row][col].flags & WEST) &&
-	    (boardarray[row][col - 1].flags & EAST))
-		return &boardarray[row][col - 1];
+	return (((tile - boardarray[0]) % BOARDW) == (BOARDW - 1));
+}
 
-	return NULL;
+static struct gametile *get_north_neighbor(struct gametile *tile)
+{
+	if (is_first_row(tile) || !(tile->flags & NORTH))
+	    return NULL;
+
+	return tile - BOARDW;
+}
+
+static struct gametile *get_east_neighbor(struct gametile *tile)
+{
+	if (is_last_col(tile) || !(tile->flags & EAST))
+	    return NULL;
+
+	return tile + 1;
+}
+
+static struct gametile *get_south_neighbor(struct gametile *tile)
+{
+	if (is_last_row(tile) || !(tile->flags & SOUTH))
+		return NULL;
+
+	return tile + BOARDW;
+}
+
+static struct gametile *get_west_neighbor(struct gametile *tile)
+{
+	 if (is_first_col(tile) || !(tile->flags & WEST))
+		 return NULL;
+
+	 return tile - 1;
 }
 
 /**
  * return true if the tile has any open ends
  */
-static bool is_neighbor_open(int row, int col)
+static bool is_neighbor_open(struct gametile *tile)
 {
-	if ((boardarray[row][col].flags & NORTH) &&
-	    ((row == 0) || !(boardarray[row -1][col].flags & SOUTH)))
-		return true;
+	struct gametile *neighbor;
 
-	if ((boardarray[row][col].flags & EAST) &&
-	    ((col == (BOARDW - 1)) || !(boardarray[row][col + 1].flags & WEST)))
-		return true;
+	if (tile->flags & NORTH) {
+		neighbor = get_north_neighbor(tile);
+		if (!(neighbor && (neighbor->flags & SOUTH)))
+			return true;
+	}
 
-	if ((boardarray[row][col].flags & SOUTH) &&
-	    ((row == (BOARDH - 1)) || !(boardarray[row + 1][col].flags & NORTH)))
-		return true;
+	if (tile->flags & EAST) {
+		neighbor = get_east_neighbor(tile);
+		if (!(neighbor && (neighbor->flags & WEST)))
+			return true;
+	}
 
-	if ((boardarray[row][col].flags & WEST) &&
-	    ((col == 0) || !(boardarray[row][col - 1].flags & EAST)))
-		return true;
+	if (tile->flags & SOUTH) {
+		neighbor = get_south_neighbor(tile);
+		if (!(neighbor && (neighbor->flags & NORTH)))
+			return true;
+	}
+
+	if (tile->flags & WEST) {
+		neighbor = get_west_neighbor(tile);
+		if (!(neighbor && (neighbor->flags & EAST)))
+			return true;
+	}
 
 	return false;
 }
@@ -1495,46 +1521,46 @@ static void start_fill(struct gametile *tile, int direction,
 	tilering_push(fill_list, tile);
 }
 
-static void start_filling_neighbors(int row, int col,
+static void start_filling_neighbors(struct gametile *tile,
 				    struct tilering *fill_list)
 {
-	struct gametile *tile;
+	struct gametile *neighbor;
 
-	tile = get_north_neighbor(row, col);
-	if (tile)
-		start_fill(tile, SOUTH, fill_list);
+	neighbor = get_north_neighbor(tile);
+	if (neighbor && (neighbor->flags & SOUTH))
+		start_fill(neighbor, SOUTH, fill_list);
 
-	tile = get_east_neighbor(row, col);
-	if (tile)
-		 start_fill(tile, WEST, fill_list);
+	neighbor = get_east_neighbor(tile);
+	if (neighbor && (neighbor->flags & WEST))
+		 start_fill(neighbor, WEST, fill_list);
 
-	tile = get_south_neighbor(row, col);
-	if (tile)
-		start_fill(tile, NORTH, fill_list);
+	neighbor = get_south_neighbor(tile);
+	if (neighbor && (neighbor->flags & NORTH))
+		start_fill(neighbor, NORTH, fill_list);
 
-	tile = get_west_neighbor(row, col);
-	if (tile)
-		start_fill(tile, EAST, fill_list);
+	neighbor = get_west_neighbor(tile);
+	if (neighbor && (neighbor->flags & EAST))
+		start_fill(neighbor, EAST, fill_list);
 }
 
-static bool fill_pipe(int row, int col, struct tilering *fill_list)
+static bool fill_pipe(struct gametile *tile, struct tilering *fill_list)
 {
-	boardarray[row][col].flags |= CHANGED;
+	tile->flags |= CHANGED;
 	redraw |= REDRAWPIPE | REDRAWSCORE;
-	boardarray[row][col].fill++;
+	tile->fill++;
 
-	if (boardarray[row][col].fill >= settings->steps) {
+	if (tile->fill >= settings->steps) {
 		if (!disablescoring) {
-			if (boardarray[row][col].pipe == PIPEEND)
+			if (tile->pipe == PIPEEND)
 				score += scoring->fillend;
 			else
 				score += scoring->fill;
 		}
 
-		if (is_neighbor_open(row, col))
+		if (is_neighbor_open(tile))
 			return true;
 
-		start_filling_neighbors(row, col, fill_list);
+		start_filling_neighbors(tile, fill_list);
 	}
 
 	return false;
@@ -1551,7 +1577,7 @@ static bool fillpipes(struct tilering *fill_list)
 	if (!current)
 		return true;
 	else
-		return fill_pipe(current->row, current->col, fill_list);
+		return fill_pipe(current, fill_list);
 }
 
 static void check_highscore()
