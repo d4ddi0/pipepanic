@@ -697,13 +697,10 @@ static void draw_partial_tile(const struct gametile *tile)
 	blit(tiles, &src, &dest);
 }
 
-static void draw_tile(struct gametile *tile, bool force)
+static void draw_tile(struct gametile *tile)
 {
 	SDL_Rect src;
 	SDL_Rect *tile_rect = get_tile_rect(tile);
-
-	if (!(tile->flags & CHANGED) && !force)
-		return;
 
 	src.x = 4 * tilew;
 	src.y = 6 * tileh;
@@ -774,10 +771,10 @@ static void draw_game(void)
 		blit(tiles, &src, &new_game_label);
 	}
 
-	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES) {
+	if ((redraw & REDRAWALLPIPES) == REDRAWALLPIPES)
 		FOREACH_TILE(row, col)
-			draw_tile(&boardarray[row][col], true);
-	}
+			draw_tile(&boardarray[row][col]);
+
 	if ((redraw & REDRAWHIGHSCORE) == REDRAWHIGHSCORE) {
 		/* The top high score */
 		/* If flashhighscorestate is true then no score is shown
@@ -807,8 +804,10 @@ static void draw_game(void)
 		draw_preview();
 	}
 	if (redraw & REDRAWPIPE) {
-		FOREACH_TILE(row, col)
-			draw_tile(&boardarray[row][col], false);
+		FOREACH_TILE(row, col) {
+			if (boardarray[row][col].flags & CHANGED)
+				draw_tile(&boardarray[row][col]);
+		}
 	}
 
 	if ((redraw & REDRAWHELP) == REDRAWHELP) {
