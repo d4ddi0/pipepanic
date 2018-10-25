@@ -1514,6 +1514,7 @@ static void start_fill(struct gametile *tile, int direction,
 {
 	tile->flags |= (direction << FILLDIRECTION);
 	tilering_push(fill_list, tile);
+	tile->fill += 1;
 }
 
 static void start_filling_neighbors(struct gametile *tile,
