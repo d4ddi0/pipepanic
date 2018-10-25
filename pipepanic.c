@@ -32,8 +32,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
 struct gametile {
 	int pipe;
 	unsigned int flags;
-	int row;
-	int col;
 	int fill;
 };
 
@@ -953,8 +951,6 @@ static void initialise_new_game(void)
 	FOREACH_TILE(row, col) {
 		boardarray[row][col].flags = 0;
 		boardarray[row][col].fill = 0;
-		boardarray[row][col].row = row;
-		boardarray[row][col].col = col;
 		set_pipe(&boardarray[row][col], NULLPIPEVAL);
 	}
 
