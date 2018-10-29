@@ -645,7 +645,7 @@ static void draw_partial_tile(const struct gametile *tile)
 {
 	SDL_Rect src, dest;
 	SDL_Rect *tile_rect = get_tile_rect(tile);
-	int offset;
+	int xoffset = 0, yoffset = 0;
 	int unfilled = settings->steps - tile->fill;
 
 	get_pipe_src(tile->pipe, &src, true);
@@ -657,43 +657,49 @@ static void draw_partial_tile(const struct gametile *tile)
 
 	switch (tile->flags & FILLDIRECTION_MASK) {
 	case FROM_NORTH:
-		dest.w = src.w;
-		dest.h = src.h = unfilled * tileh / settings->steps;
-		src.y += tileh - src.h;
-		dest.x = tile_rect->x;
-		dest.y = tile_rect->y + tileh - src.h;
+		src.h = unfilled * tileh / settings->steps;
+		yoffset = tileh - src.h;
 		break;
 	case FROM_EAST:
-		dest.w = src.w = unfilled * tilew / settings->steps;
-		dest.h = src.h;
-		dest.x = tile_rect->x;
-		dest.y = tile_rect->y;
+		src.w = unfilled * tilew / settings->steps;
 		break;
 	case FROM_SOUTH:
-		dest.w = src.w;
-		dest.h = src.h = unfilled * tileh / settings->steps;
-		dest.x = tile_rect->x;
-		dest.y = tile_rect->y;
+		src.h = unfilled * tileh / settings->steps;
 		break;
 	case FROM_WEST:
-		dest.w = src.w = unfilled * tilew / settings->steps;
-		dest.h = src.h;
-		src.x += tilew - src.w;
-		dest.x = tile_rect->x + tilew - src.w;
-		dest.y = tile_rect->y;
+		src.w = unfilled * tilew / settings->steps;
+		xoffset = tilew - src.w;
 		break;
 	default:
 		src.w = SDL_sqrt(tilew * tilew * unfilled / settings->steps);
-		dest.h = dest.w = src.h = src.w;
-		offset = (tilew - src.w) >> 1;
-		src.x += offset;
-		src.y += offset;
-		dest.x = tile_rect->x + offset;
-		dest.y = tile_rect->y + offset;
+		src.h = src.w;
+		switch(tile->flags & FILLDIRECTION_MASK) {
+		case FROM_NE:
+			yoffset = tileh - src.h;
+			break;
+		case FROM_SE:
+			break;
+		case FROM_SW:
+			xoffset = tilew - src.w;
+			break;
+		case FROM_NW:
+			xoffset = tilew - src.w;
+			yoffset = tileh - src.h;
+			break;
+		default:
+			xoffset = (tilew - src.w) >> 1;
+			yoffset = xoffset;
+			break;
+		}
 		break;
-
 	}
 
+	src.x += xoffset;
+	src.y += yoffset;
+	dest.w = src.w;
+	dest.h = src.h;
+	dest.x = tile_rect->x + xoffset;
+	dest.y = tile_rect->y + yoffset;
 	blit(tiles, &src, &dest);
 }
 
